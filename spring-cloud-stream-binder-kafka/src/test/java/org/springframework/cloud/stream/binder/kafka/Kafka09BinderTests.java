@@ -129,7 +129,8 @@ public class Kafka09BinderTests extends KafkaBinderTests {
 
 	@Before
 	public void init() {
-		String multiplier = System.getenv("KAFKA_TIMEOUT_MULTIPLIER");
+		//String multiplier = System.getenv("KAFKA_TIMEOUT_MULTIPLIER");
+		String multiplier = "10";
 		if (multiplier != null) {
 			timeoutMultiplier = Double.parseDouble(multiplier);
 		}
