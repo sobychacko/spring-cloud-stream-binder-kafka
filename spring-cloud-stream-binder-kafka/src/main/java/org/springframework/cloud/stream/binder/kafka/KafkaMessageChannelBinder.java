@@ -198,6 +198,7 @@ public class KafkaMessageChannelBinder extends
 	protected MessageHandler createProducerMessageHandler(final String destination,
 															ExtendedProducerProperties<KafkaProducerProperties> producerProperties) throws Exception {
 
+		this.logger.info("In createProducerMessageHandler: " + destination);
 		KafkaTopicUtils.validateTopicName(destination);
 		createTopicsIfAutoCreateEnabledAndAdminUtilsPresent(destination, producerProperties.getPartitionCount());
 		Collection<PartitionInfo> partitions = getPartitionsForTopic(destination, producerProperties.getPartitionCount());
@@ -217,6 +218,7 @@ public class KafkaMessageChannelBinder extends
 		if (this.producerListener != null) {
 			kafkaTemplate.setProducerListener(this.producerListener);
 		}
+		this.logger.info("Leaving createProducerMessageHandler: " + producerFB.isRunning());
 		return new ProducerConfigurationMessageHandler(kafkaTemplate, destination, producerProperties, producerFB);
 	}
 
@@ -268,6 +270,7 @@ public class KafkaMessageChannelBinder extends
 	@Override
 	protected Collection<PartitionInfo> createConsumerDestinationIfNecessary(String name, String group,
 																			ExtendedConsumerProperties<KafkaConsumerProperties> properties) {
+		this.logger.info("in createConsumerDestinationIfNecessary: " + name + ":" + "group");
 		KafkaTopicUtils.validateTopicName(name);
 		if (properties.getInstanceCount() == 0) {
 			throw new IllegalArgumentException("Instance count cannot be zero");
@@ -292,6 +295,7 @@ public class KafkaMessageChannelBinder extends
 			}
 		}
 		this.topicsInUse.put(name, listenedPartitions);
+		this.logger.info("Leaving createConsumerDestinationIfNecessary" + listenedPartitions);
 		return listenedPartitions;
 	}
 
@@ -299,6 +303,8 @@ public class KafkaMessageChannelBinder extends
 	@SuppressWarnings("unchecked")
 	protected MessageProducer createConsumerEndpoint(String name, String group, Collection<PartitionInfo> destination,
 													ExtendedConsumerProperties<KafkaConsumerProperties> properties) {
+		this.logger.info("In createConsumerEndpoint: " + name + ":" +group + ":" + destination);
+
 		boolean anonymous = !StringUtils.hasText(group);
 		Assert.isTrue(!anonymous || !properties.getExtension().isEnableDlq(),
 				"DLQ support is not available for anonymous subscriptions");
@@ -395,6 +401,7 @@ public class KafkaMessageChannelBinder extends
 				}
 			});
 		}
+		this.logger.info("Leaving createConsumerEndpoint: " + name + ":" +group + ":" + kafkaMessageDrivenChannelAdapter.isRunning());
 		return kafkaMessageDrivenChannelAdapter;
 	}
 
