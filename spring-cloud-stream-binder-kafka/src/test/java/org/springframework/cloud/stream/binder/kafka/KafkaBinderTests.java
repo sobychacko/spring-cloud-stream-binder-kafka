@@ -27,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.assertj.core.api.Condition;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -69,6 +71,8 @@ import static org.assertj.core.api.Assertions.fail;
  */
 public abstract class KafkaBinderTests extends PartitionCapableBinderTests<AbstractKafkaTestBinder, ExtendedConsumerProperties<KafkaConsumerProperties>,
 						ExtendedProducerProperties<KafkaProducerProperties>> {
+
+	protected final Log logger = LogFactory.getLog(this.getClass());
 
 	@Override
 	protected ExtendedConsumerProperties<KafkaConsumerProperties> createConsumerProperties() {
@@ -998,6 +1002,7 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 	@Test
 	@SuppressWarnings("unchecked")
 	public void testAutoCreateTopicsDisabledOnBinderStillWorksAsLongAsBrokerCreatesTopic() throws Exception {
+		logger.info("testAutoCreateTopicsDisabledOnBinderStillWorksAsLongAsBrokerCreatesTopic");
 		KafkaBinderConfigurationProperties configurationProperties = createConfigurationProperties();
 		configurationProperties.setAutoCreateTopics(false);
 		Binder binder = getBinder(configurationProperties);
