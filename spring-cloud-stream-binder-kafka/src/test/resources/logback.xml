@@ -8,7 +8,7 @@
     <logger name="org.springframework.kafka" level="DEBUG"/>
     <logger name="org.springframework.cloud.stream" level="DEBUG" />
     <logger name="org.springframework.integration.channel" level="DEBUG" />
-    <root level="INFO">
+    <root level="WARN">
         <appender-ref ref="stdout"/>
     </root>
 </configuration>
