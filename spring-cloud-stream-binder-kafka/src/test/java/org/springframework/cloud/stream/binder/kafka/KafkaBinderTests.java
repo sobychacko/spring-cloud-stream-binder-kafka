@@ -1024,6 +1024,7 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 
 		Binding<MessageChannel> consumerBinding = binder.bindConsumer(testTopicName, "test", input, consumerProperties);
 		Message<byte[]> receivedMessage2 = (Message<byte[]>) receive(input);
+		logger.info("Received: " + receivedMessage2);
 		assertThat(receivedMessage2).isNotNull();
 		assertThat(new String(receivedMessage2.getPayload())).isEqualTo(testPayload);
 
