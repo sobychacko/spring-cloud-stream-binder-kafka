@@ -1030,6 +1030,7 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 
 		producerBinding.unbind();
 		consumerBinding.unbind();
+		logger.info("done testAutoCreateTopicsDisabledOnBinderStillWorksAsLongAsBrokerCreatesTopic");
 	}
 
 	@Test
