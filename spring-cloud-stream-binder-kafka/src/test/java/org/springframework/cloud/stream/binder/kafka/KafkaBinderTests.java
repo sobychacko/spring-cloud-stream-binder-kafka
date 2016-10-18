@@ -608,6 +608,7 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 	@Override
 	@SuppressWarnings("unchecked")
 	public void testSendAndReceiveMultipleTopics() throws Exception {
+		logger.info("In testSendAndReceiveMultipleTopics overridden");
 		Binder binder = getBinder();
 
 		DirectChannel moduleOutputChannel1 = createBindableChannel("output1",
@@ -656,11 +657,15 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 
 		consumerBinding1.unbind();
 		consumerBinding2.unbind();
+		logger.info("Done testSendAndReceiveMultipleTopics overridden");
+
 	}
 
 	@Test
 	@SuppressWarnings("unchecked")
 	public void testManualAckSucceedsWhenAutoCommitOffsetIsTurnedOff() throws Exception {
+		logger.info("In testManualAckSucceedsWhenAutoCommitOffsetIsTurnedOff");
+
 		Binder binder = getBinder();
 
 		DirectChannel moduleOutputChannel = createBindableChannel("output",
@@ -698,11 +703,14 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 			producerBinding.unbind();
 			consumerBinding.unbind();
 		}
+		logger.info("done testManualAckSucceedsWhenAutoCommitOffsetIsTurnedOff");
+
 	}
 
 	@Test
 	@SuppressWarnings("unchecked")
 	public void testManualAckIsNotPossibleWhenAutoCommitOffsetIsEnabledOnTheBinder() throws Exception {
+		logger.info("In testManualAckIsNotPossibleWhenAutoCommitOffsetIsEnabledOnTheBinder");
 		Binder binder = getBinder();
 
 		DirectChannel moduleOutputChannel = createBindableChannel("output",
@@ -731,6 +739,8 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 
 		producerBinding.unbind();
 		consumerBinding.unbind();
+		logger.info("Done testManualAckIsNotPossibleWhenAutoCommitOffsetIsEnabledOnTheBinder");
+
 	}
 
 	@Test
