@@ -312,6 +312,10 @@ public class KafkaMessageChannelBinder extends
 			props.putAll(properties.getExtension().getConfiguration());
 		}
 
+		if (logger.isDebugEnabled()) {
+			logger.debug("Kafka consumer properties: " + props);
+		}
+
 		ConsumerFactory<byte[], byte[]> consumerFactory = new DefaultKafkaConsumerFactory<>(props, keyDecoder,
 				valueDecoder);
 
