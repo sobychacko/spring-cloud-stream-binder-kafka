@@ -77,6 +77,8 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 		// set the default values that would normally be propagated by Spring Cloud Stream
 		kafkaConsumerProperties.setInstanceCount(1);
 		kafkaConsumerProperties.setInstanceIndex(0);
+		kafkaConsumerProperties.getExtension().getConfiguration().put("heartbeat.interval.ms", "10");
+		kafkaConsumerProperties.getExtension().getConfiguration().put("session.timeout.ms", "30");
 		return kafkaConsumerProperties;
 	}
 
