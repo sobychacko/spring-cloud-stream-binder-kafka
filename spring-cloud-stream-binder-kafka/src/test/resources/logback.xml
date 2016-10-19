@@ -6,7 +6,7 @@
     </appender>
     <logger name="org.springframework.integration.kafka" level="DEBUG"/>
     <logger name="org.springframework.kafka" level="DEBUG"/>
-    <logger name="org.apache.kafka" level="DEBUG"/>
+    <logger name="org.apache.kafka" level="INFO"/>
     <logger name="org.springframework.cloud.stream" level="DEBUG" />
     <logger name="org.springframework.integration.channel" level="DEBUG" />
     <root level="WARN">
