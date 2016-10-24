@@ -27,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
 import org.I0Itec.zkclient.ZkClient;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.assertj.core.api.Condition;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -69,6 +71,8 @@ import static org.assertj.core.api.Assertions.fail;
  */
 public abstract class KafkaBinderTests extends PartitionCapableBinderTests<AbstractKafkaTestBinder, ExtendedConsumerProperties<KafkaConsumerProperties>,
 						ExtendedProducerProperties<KafkaProducerProperties>> {
+
+	protected final Log logger = LogFactory.getLog(this.getClass());
 
 	@Override
 	protected ExtendedConsumerProperties<KafkaConsumerProperties> createConsumerProperties() {
@@ -567,7 +571,6 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 			String testPayload1 = "foo1-" + UUID.randomUUID().toString();
 			output.send(new GenericMessage<>(testPayload1.getBytes()));
 			ExtendedConsumerProperties<KafkaConsumerProperties> firstConsumerProperties = createConsumerProperties();
-			firstConsumerProperties.getExtension().setAutoRebalanceEnabled(false);
 			consumerBinding = binder.bindConsumer(testTopicName, "startOffsets", input1,
 					firstConsumerProperties);
 			Message<byte[]> receivedMessage1 = (Message<byte[]>) receive(input1);
@@ -580,13 +583,15 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 			consumerBinding.unbind();
 
 			String testPayload3 = "foo3-" + UUID.randomUUID().toString();
+			logger.info("testPayload3: " + testPayload3);
+
 			output.send(new GenericMessage<>(testPayload3.getBytes()));
 
 			ExtendedConsumerProperties<KafkaConsumerProperties> consumerProperties = createConsumerProperties();
 			consumerBinding = binder.bindConsumer(testTopicName, "startOffsets", input1, consumerProperties);
-			consumerProperties.getExtension().setAutoRebalanceEnabled(false);
 			Message<byte[]> receivedMessage3 = (Message<byte[]>) receive(input1);
 			assertThat(receivedMessage3).isNotNull();
+			logger.info("received testPayload3: " + new String(receivedMessage3.getPayload()));
 			assertThat(new String(receivedMessage3.getPayload())).isEqualTo(testPayload3);
 
 			Thread.sleep(2000);
