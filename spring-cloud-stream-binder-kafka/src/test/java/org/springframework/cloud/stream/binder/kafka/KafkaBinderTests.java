@@ -464,7 +464,7 @@ public abstract class KafkaBinderTests extends PartitionCapableBinderTests<Abstr
 		consumerBinding.unbind();
 	}
 
-	@Test
+	@Test;
 	@SuppressWarnings("unchecked")
 	public void testEarliest() throws Exception {
 		Binding<MessageChannel> producerBinding = null;
