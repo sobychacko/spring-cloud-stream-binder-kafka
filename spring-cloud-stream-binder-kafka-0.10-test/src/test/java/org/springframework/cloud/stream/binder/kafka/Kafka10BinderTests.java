@@ -42,7 +42,9 @@ import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.Spy;
 import org.springframework.cloud.stream.binder.kafka.admin.Kafka10AdminUtilsOperation;
-import org.springframework.cloud.stream.binder.kafka.config.KafkaBinderConfigurationProperties;
+import org.springframework.cloud.stream.binder.kafka.core.KafkaBinderConfigurationProperties;
+import org.springframework.cloud.stream.binder.kafka.core.KafkaConsumerProperties;
+import org.springframework.cloud.stream.binder.kafka.core.KafkaProducerProperties;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.channel.QueueChannel;
 import org.springframework.kafka.core.ConsumerFactory;
@@ -54,7 +56,6 @@ import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.SubscribableChannel;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.retry.RetryOperations;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
@@ -111,11 +112,11 @@ public class Kafka10BinderTests extends KafkaBinderTests {
 		return consumerFactory().createConsumer().partitionsFor(topic).size();
 	}
 
-	@Override
-	@SuppressWarnings("unchecked")
-	protected void setMetadataRetryOperations(Binder binder, RetryOperations retryOperations) {
-		((Kafka10TestBinder) binder).getBinder().setMetadataRetryOperations(retryOperations);
-	}
+//	@Override
+//	@SuppressWarnings("unchecked")
+//	protected void setMetadataRetryOperations(Binder binder, RetryOperations retryOperations) {
+//		((Kafka10TestBinder) binder).getBinder().setMetadataRetryOperations(retryOperations);
+//	}
 
 	@Override
 	protected ZkUtils getZkUtils(KafkaBinderConfigurationProperties kafkaBinderConfigurationProperties) {
