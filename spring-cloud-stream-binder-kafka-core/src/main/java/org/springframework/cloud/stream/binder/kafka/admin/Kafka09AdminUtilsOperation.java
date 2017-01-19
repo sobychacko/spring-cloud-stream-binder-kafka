@@ -43,8 +43,7 @@ public class Kafka09AdminUtilsOperation implements AdminUtilsOperation {
 		return topicMetadata.partitionsMetadata().size();
 	}
 
-	public void invokeCreateTopic(ZkUtils zkUtils, String topic, int partitions,
-								int replicationFactor, Properties topicConfig) {
+	public void invokeCreateTopic(ZkUtils zkUtils, String topic, int partitions, int replicationFactor, Properties topicConfig) {
 		AdminUtils.createTopic(zkUtils, topic, partitions, replicationFactor,
 				topicConfig);
 	}

@@ -29,7 +29,8 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
-import org.springframework.cloud.stream.binder.kafka.config.KafkaBinderConfigurationProperties;
+import org.springframework.cloud.stream.binder.kafka.core.KafkaBinderConfigurationProperties;
+import org.springframework.cloud.stream.binder.kafka.core.KafkaTopicsInUseInfo;
 
 /**
  * Health indicator for Kafka.
@@ -39,13 +40,13 @@ import org.springframework.cloud.stream.binder.kafka.config.KafkaBinderConfigura
  */
 public class KafkaBinderHealthIndicator implements HealthIndicator {
 
-	private final KafkaMessageChannelBinder binder;
+	private final KafkaTopicsInUseInfo topicsInUse;
 
 	private final KafkaBinderConfigurationProperties configurationProperties;
 
-	public KafkaBinderHealthIndicator(KafkaMessageChannelBinder binder,
+	public KafkaBinderHealthIndicator(KafkaTopicsInUseInfo topicsInUse,
 										KafkaBinderConfigurationProperties configurationProperties) {
-		this.binder = binder;
+		this.topicsInUse = topicsInUse;
 		this.configurationProperties = configurationProperties;
 
 	}
@@ -60,10 +61,10 @@ public class KafkaBinderHealthIndicator implements HealthIndicator {
 		KafkaConsumer metadataConsumer = new KafkaConsumer(properties);
 		try {
 			Set<String> downMessages = new HashSet<>();
-			for (String topic : this.binder.getTopicsInUse().keySet()) {
+			for (String topic : this.topicsInUse.getTopicsInUse().keySet()) {
 				List<PartitionInfo> partitionInfos = metadataConsumer.partitionsFor(topic);
 				for (PartitionInfo partitionInfo : partitionInfos) {
-					if (this.binder.getTopicsInUse().get(topic).contains(partitionInfo) && partitionInfo.leader()
+					if (this.topicsInUse.getTopicsInUse().get(topic).contains(partitionInfo) && partitionInfo.leader()
 							.id() == -1) {
 						downMessages.add(partitionInfo.toString());
 					}
