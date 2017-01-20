@@ -35,7 +35,6 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.utils.Utils;
 
-import org.springframework.beans.factory.DisposableBean;
 import org.springframework.cloud.stream.binder.AbstractMessageChannelBinder;
 import org.springframework.cloud.stream.binder.Binder;
 import org.springframework.cloud.stream.binder.BinderHeaders;
@@ -84,23 +83,26 @@ import org.springframework.util.StringUtils;
  */
 public class KafkaMessageChannelBinder extends
 		AbstractMessageChannelBinder<ExtendedConsumerProperties<KafkaConsumerProperties>,
-				ExtendedProducerProperties<KafkaProducerProperties>, Collection<PartitionInfo>, String>
-		implements ExtendedPropertiesBinder<MessageChannel, KafkaConsumerProperties, KafkaProducerProperties>,
-		DisposableBean {
+				ExtendedProducerProperties<KafkaProducerProperties>, Collection<PartitionInfo>, String, Producer<byte[], byte[]>>
+		implements ExtendedPropertiesBinder<MessageChannel, KafkaConsumerProperties, KafkaProducerProperties> {
 
 	private final KafkaBinderConfigurationProperties configurationProperties;
 
 	private ProducerListener<byte[], byte[]> producerListener;
 
-	private volatile Producer<byte[], byte[]> dlqProducer;
-
 	private KafkaExtendedBindingProperties extendedBindingProperties = new KafkaExtendedBindingProperties();
+
+	ProvisioningProvider<ExtendedConsumerProperties<KafkaConsumerProperties>,
+			ExtendedProducerProperties<KafkaProducerProperties>,
+			Collection<PartitionInfo>, String, Producer<byte[], byte[]>> provisioningProvider;
 
 	public KafkaMessageChannelBinder(KafkaBinderConfigurationProperties configurationProperties,
 									ProvisioningProvider<ExtendedConsumerProperties<KafkaConsumerProperties>,
-									ExtendedProducerProperties<KafkaProducerProperties>, Collection<PartitionInfo>, String> provisioningProvider) {
+									ExtendedProducerProperties<KafkaProducerProperties>,
+											Collection<PartitionInfo>, String, Producer<byte[], byte[]>> provisioningProvider) {
 		super(false, headersToMap(configurationProperties), provisioningProvider);
 		this.configurationProperties = configurationProperties;
+		this.provisioningProvider = provisioningProvider;
 	}
 
 	private static String[] headersToMap(KafkaBinderConfigurationProperties configurationProperties) {
@@ -121,14 +123,6 @@ public class KafkaMessageChannelBinder extends
 
 	public void setExtendedBindingProperties(KafkaExtendedBindingProperties extendedBindingProperties) {
 		this.extendedBindingProperties = extendedBindingProperties;
-	}
-
-	@Override
-	public void destroy() throws Exception {
-		if (this.dlqProducer != null) {
-			this.dlqProducer.close();
-			this.dlqProducer = null;
-		}
 	}
 
 	public void setProducerListener(ProducerListener<byte[], byte[]> producerListener) {
@@ -231,7 +225,7 @@ public class KafkaMessageChannelBinder extends
 		kafkaMessageDrivenChannelAdapter.setRetryTemplate(retryTemplate);
 		if (properties.getExtension().isEnableDlq()) {
 			final String dlqTopic = "error." + name + "." + group;
-			initDlqProducer();
+			final Producer<byte[], byte[]> dlq = provisioningProvider.provisionDlq();
 			messageListenerContainer.getContainerProperties().setErrorHandler(new ErrorHandler() {
 
 				@Override
@@ -240,7 +234,7 @@ public class KafkaMessageChannelBinder extends
 							: null;
 					final byte[] payload = message.value() != null
 							? Utils.toArray(ByteBuffer.wrap((byte[]) message.value())) : null;
-					KafkaMessageChannelBinder.this.dlqProducer.send(new ProducerRecord<>(dlqTopic, key, payload),
+					dlq.send(new ProducerRecord<>(dlqTopic, key, payload),
 							new Callback() {
 
 								@Override
@@ -302,34 +296,6 @@ public class KafkaMessageChannelBinder extends
 					partition.partition());
 		}
 		return topicPartitionInitialOffsets;
-	}
-
-	private synchronized void initDlqProducer() {
-		try {
-			if (this.dlqProducer == null) {
-				synchronized (this) {
-					if (this.dlqProducer == null) {
-						// we can use the producer defaults as we do not need to tune
-						// performance
-						Map<String, Object> props = new HashMap<>();
-						props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-								this.configurationProperties.getKafkaConnectionString());
-						props.put(ProducerConfig.RETRIES_CONFIG, 0);
-						props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
-						props.put(ProducerConfig.LINGER_MS_CONFIG, 1);
-						props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
-						props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
-						props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
-						DefaultKafkaProducerFactory<byte[], byte[]> defaultKafkaProducerFactory =
-								new DefaultKafkaProducerFactory<>(props);
-						this.dlqProducer = defaultKafkaProducerFactory.createProducer();
-					}
-				}
-			}
-		}
-		catch (Exception e) {
-			throw new RuntimeException("Cannot initialize DLQ producer:", e);
-		}
 	}
 
 	private String toDisplayString(String original, int maxCharacters) {

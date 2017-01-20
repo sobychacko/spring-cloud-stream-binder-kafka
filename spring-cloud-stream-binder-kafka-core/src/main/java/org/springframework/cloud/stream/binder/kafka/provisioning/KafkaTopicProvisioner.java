@@ -11,11 +11,13 @@ import kafka.common.ErrorMapping;
 import kafka.utils.ZkUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.security.JaasUtils;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.cloud.stream.binder.BinderException;
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -39,7 +41,7 @@ import org.springframework.util.ObjectUtils;
  * @author Soby Chacko
  */
 public class KafkaTopicProvisioner implements ProvisioningProvider<ExtendedConsumerProperties<KafkaConsumerProperties>,
-		ExtendedProducerProperties<KafkaProducerProperties>, Collection<PartitionInfo>, String>, InitializingBean {
+		ExtendedProducerProperties<KafkaProducerProperties>, Collection<PartitionInfo>, String, Producer<byte[], byte[]>>, InitializingBean, DisposableBean {
 
 	private final Log logger = LogFactory.getLog(getClass());
 
@@ -49,6 +51,8 @@ public class KafkaTopicProvisioner implements ProvisioningProvider<ExtendedConsu
 	private RetryOperations metadataRetryOperations;
 
 	private KafkaTopicsInUseInfo kafkaTopicsInUseInfo;
+
+	private volatile Producer<byte[], byte[]> dlqProducer;
 
 	public KafkaTopicProvisioner(KafkaBinderConfigurationProperties kafkaBinderConfigurationProperties,
 								AdminUtilsOperation adminUtilsOperation,
@@ -122,6 +126,37 @@ public class KafkaTopicProvisioner implements ProvisioningProvider<ExtendedConsu
 		}
 		this.kafkaTopicsInUseInfo.addTopic(name, listenedPartitions);
 		return listenedPartitions;
+	}
+
+	@Override
+	public synchronized Producer<byte[], byte[]> provisionDlq() {
+		try {
+			if (this.dlqProducer == null) {
+				synchronized (this) {
+					if (this.dlqProducer == null) {
+						// we can use the producer defaults as we do not need to tune
+						// performance
+						Map<String, Object> props = new HashMap<>();
+						props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+								this.configurationProperties.getKafkaConnectionString());
+						props.put(ProducerConfig.RETRIES_CONFIG, 0);
+						props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
+						props.put(ProducerConfig.LINGER_MS_CONFIG, 1);
+						props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, 33554432);
+						props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+						props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+						DefaultKafkaProducerFactory<byte[], byte[]> defaultKafkaProducerFactory =
+								new DefaultKafkaProducerFactory<>(props);
+						this.dlqProducer = defaultKafkaProducerFactory.createProducer();
+					}
+				}
+			}
+		}
+		catch (Exception e) {
+			throw new RuntimeException("Cannot initialize DLQ producer:", e);
+		}
+
+		return this.dlqProducer;
 	}
 
 	private void createTopicsIfAutoCreateEnabledAndAdminUtilsPresent(final String topicName, final int partitionCount) {
@@ -272,5 +307,14 @@ public class KafkaTopicProvisioner implements ProvisioningProvider<ExtendedConsu
 			throw new AssertionError(e); // Can't happen
 		}
 	}
+
+	@Override
+	public void destroy() throws Exception {
+		if (this.dlqProducer != null) {
+			this.dlqProducer.close();
+			this.dlqProducer = null;
+		}
+	}
+
 
 }

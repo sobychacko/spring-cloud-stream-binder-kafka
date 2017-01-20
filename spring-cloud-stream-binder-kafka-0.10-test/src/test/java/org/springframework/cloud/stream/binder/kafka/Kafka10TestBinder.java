@@ -18,6 +18,7 @@ package org.springframework.cloud.stream.binder.kafka;
 
 import java.util.Collection;
 
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.common.PartitionInfo;
 
 import org.springframework.cloud.stream.binder.ExtendedConsumerProperties;
@@ -48,7 +49,7 @@ public class Kafka10TestBinder extends AbstractKafkaTestBinder {
 		try {
 			AdminUtilsOperation adminUtilsOperation = new Kafka10AdminUtilsOperation();
 			ProvisioningProvider<ExtendedConsumerProperties<KafkaConsumerProperties>,
-					ExtendedProducerProperties<KafkaProducerProperties>, Collection<PartitionInfo>, String> provisioningProvider =
+					ExtendedProducerProperties<KafkaProducerProperties>, Collection<PartitionInfo>, String, Producer<byte[], byte[]>> provisioningProvider =
 					new KafkaTopicProvisioner(binderConfiguration, adminUtilsOperation, new KafkaTopicsInUseInfo());
 			((KafkaTopicProvisioner)provisioningProvider).afterPropertiesSet();
 
