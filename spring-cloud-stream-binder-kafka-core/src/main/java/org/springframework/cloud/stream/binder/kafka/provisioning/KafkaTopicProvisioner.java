@@ -77,7 +77,7 @@ public class KafkaTopicProvisioner implements ProvisioningProvider<ExtendedConsu
 	}
 
 	@Override
-	public String createProducerDestinationIfNecessary(String name, ExtendedProducerProperties<KafkaProducerProperties> properties) {
+	public String provisionProducerDestination(String name, ExtendedProducerProperties<KafkaProducerProperties> properties) {
 		if (this.logger.isInfoEnabled()) {
 			this.logger.info("Using kafka topic for outbound: " + name);
 		}
@@ -96,7 +96,7 @@ public class KafkaTopicProvisioner implements ProvisioningProvider<ExtendedConsu
 	}
 
 	@Override
-	public Collection<PartitionInfo> createConsumerDestinationIfNecessary(String name, String group, ExtendedConsumerProperties<KafkaConsumerProperties> properties) {
+	public Collection<PartitionInfo> provisionConsumerDestination(String name, String group, ExtendedConsumerProperties<KafkaConsumerProperties> properties) {
 		validateTopicName(name);
 		if (properties.getInstanceCount() == 0) {
 			throw new IllegalArgumentException("Instance count cannot be zero");
