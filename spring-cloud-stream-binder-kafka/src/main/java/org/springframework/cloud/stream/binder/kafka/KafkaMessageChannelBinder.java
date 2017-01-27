@@ -49,7 +49,7 @@ import org.springframework.cloud.stream.binder.kafka.core.KafkaConsumerPropertie
 import org.springframework.cloud.stream.binder.kafka.core.KafkaExtendedBindingProperties;
 import org.springframework.cloud.stream.binder.kafka.core.KafkaProducerProperties;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
-import org.springframework.cloud.stream.provisioning.Destination;
+import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.cloud.stream.provisioning.ProvisioningProvider;
 import org.springframework.context.Lifecycle;
 import org.springframework.expression.common.LiteralExpression;
@@ -176,7 +176,7 @@ public class KafkaMessageChannelBinder extends
 	}
 
 	@Override
-	protected MessageHandler createProducerMessageHandler(final Destination destination,
+	protected MessageHandler createProducerMessageHandler(final ProducerDestination destination,
 															ExtendedProducerProperties<KafkaProducerProperties> producerProperties) throws Exception {
 
 		Collection<PartitionInfo> partitions = getPartitionsForTopic(destination.getDestination(), producerProperties.getPartitionCount());
@@ -222,7 +222,7 @@ public class KafkaMessageChannelBinder extends
 
 	@Override
 	@SuppressWarnings("unchecked")
-	protected MessageProducer createConsumerEndpoint(String name, String group, final ConsumerDestination destination,
+	protected MessageProducer createConsumerEndpoint(final ConsumerDestination destination, String group,
 													ExtendedConsumerProperties<KafkaConsumerProperties> properties) {
 
 		boolean anonymous = !StringUtils.hasText(group);
@@ -236,7 +236,7 @@ public class KafkaMessageChannelBinder extends
 		ConsumerFactory<?, ?> consumerFactory = new DefaultKafkaConsumerFactory<>(props);
 		int partitionCount = properties.getInstanceCount() * properties.getConcurrency();
 
-		Collection<PartitionInfo> allPartitions = getPartitionsForTopic(name, partitionCount);
+		Collection<PartitionInfo> allPartitions = getPartitionsForTopic(destination.getDestination(), partitionCount);
 
 		Collection<PartitionInfo> listenedPartitions;
 
@@ -259,7 +259,7 @@ public class KafkaMessageChannelBinder extends
 		final TopicPartitionInitialOffset[] topicPartitionInitialOffsets = getTopicPartitionInitialOffsets(
 				listenedPartitions);
 		final ContainerProperties containerProperties =
-				anonymous || properties.getExtension().isAutoRebalanceEnabled() ? new ContainerProperties(name)
+				anonymous || properties.getExtension().isAutoRebalanceEnabled() ? new ContainerProperties(destination.getDestination())
 						: new ContainerProperties(topicPartitionInitialOffsets);
 		int concurrency = Math.min(properties.getConcurrency(), listenedPartitions.size());
 		final ConcurrentMessageListenerContainer<?, ?> messageListenerContainer =

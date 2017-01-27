@@ -38,7 +38,7 @@ import org.springframework.cloud.stream.binder.kafka.core.KafkaBinderConfigurati
 import org.springframework.cloud.stream.binder.kafka.core.KafkaConsumerProperties;
 import org.springframework.cloud.stream.binder.kafka.core.KafkaProducerProperties;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
-import org.springframework.cloud.stream.provisioning.Destination;
+import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.cloud.stream.provisioning.ProvisioningProvider;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.retry.RetryCallback;
@@ -87,17 +87,22 @@ public class KafkaTopicProvisioner implements ProvisioningProvider<ExtendedConsu
 	}
 
 	@Override
-	public Destination provisionProducerDestination(final String name, ExtendedProducerProperties<KafkaProducerProperties> properties) {
+	public ProducerDestination provisionProducerDestination(final String name, ExtendedProducerProperties<KafkaProducerProperties> properties) {
 		if (this.logger.isInfoEnabled()) {
 			this.logger.info("Using kafka topic for outbound: " + name);
 		}
 		validateTopicName(name);
 		createTopicsIfAutoCreateEnabledAndAdminUtilsPresent(name, properties.getPartitionCount());
 
-		return new Destination() {
+		return new ProducerDestination() {
 			@Override
 			public String getDestination() {
 				return name;
+			}
+
+			@Override
+			public String getDestination(int partition) {
+				throw new UnsupportedOperationException();
 			}
 		};
 	}
