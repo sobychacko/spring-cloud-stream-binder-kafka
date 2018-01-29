@@ -20,7 +20,6 @@ import org.apache.kafka.common.Configurable;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Utils;
-import org.apache.kafka.streams.StreamsConfig;
 
 import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
 import org.springframework.cloud.stream.binder.kstream.config.KStreamBinderConfigurationProperties;
@@ -40,15 +39,15 @@ public class KeyValueSerdeResolver {
 
 	private final KStreamExtendedBindingProperties kStreamExtendedBindingProperties;
 
-	private final StreamsConfig streamsConfig;
+	//private final StreamsConfig streamsConfig;
 
 	private final KStreamBinderConfigurationProperties binderConfigurationProperties;
 
-	public KeyValueSerdeResolver(StreamsConfig streamsConfig,
+	public KeyValueSerdeResolver(//StreamsConfig streamsConfig,
 								BindingServiceProperties bindingServiceProperties,
 								KStreamBinderConfigurationProperties binderConfigurationProperties,
 								KStreamExtendedBindingProperties kStreamExtendedBindingProperties) {
-		this.streamsConfig = streamsConfig;
+		//this.streamsConfig = streamsConfig;
 		this.bindingServiceProperties = bindingServiceProperties;
 		this.binderConfigurationProperties = binderConfigurationProperties;
 		this.kStreamExtendedBindingProperties = kStreamExtendedBindingProperties;
@@ -72,7 +71,7 @@ public class KeyValueSerdeResolver {
 			if (StringUtils.hasText(keySerdeString)) {
 				keySerde = Utils.newInstance(keySerdeString, Serde.class);
 				if (keySerde instanceof Configurable) {
-					((Configurable) keySerde).configure(streamsConfig.originals());
+					//((Configurable) keySerde).configure(streamsConfig.originals());
 				}
 			} else {
 				keySerde = this.binderConfigurationProperties.getConfiguration().containsKey("key.serde") ?
@@ -128,7 +127,7 @@ public class KeyValueSerdeResolver {
 		if (StringUtils.hasText(valueSerdeString)) {
 			valueSerde = Utils.newInstance(valueSerdeString, Serde.class);
 			if (valueSerde instanceof Configurable) {
-				((Configurable) valueSerde).configure(streamsConfig.originals());
+				//((Configurable) valueSerde).configure(streamsConfig.originals());
 			}
 		}
 		else {

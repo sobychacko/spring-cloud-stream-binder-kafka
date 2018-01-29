@@ -25,9 +25,14 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
 
 import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.cloud.stream.binding.AbstractBindingTargetFactory;
 import org.springframework.cloud.stream.config.BindingProperties;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.support.MessageBuilder;
@@ -38,9 +43,7 @@ import org.springframework.util.StringUtils;
  * @author Marius Bogoevici
  * @author Soby Chacko
  */
-public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KStream> {
-
-	private final StreamsBuilder kStreamBuilder;
+public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KStream> implements ApplicationContextAware {
 
 	private final BindingServiceProperties bindingServiceProperties;
 
@@ -48,26 +51,48 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 
 	private final KeyValueSerdeResolver keyValueSerdeResolver;
 
-	public KStreamBoundElementFactory(StreamsBuilder kStreamBuilder,
-									BindingServiceProperties bindingServiceProperties,
+	private volatile AbstractApplicationContext applicationContext;
+
+	public KStreamBoundElementFactory(BindingServiceProperties bindingServiceProperties,
 									BoundedKStreamPropertyCache boundedKStreamPropertyCache,
 									KeyValueSerdeResolver keyValueSerdeResolver) {
 		super(KStream.class);
 		this.bindingServiceProperties = bindingServiceProperties;
-		this.kStreamBuilder = kStreamBuilder;
 		this.boundedKStreamPropertyCache = boundedKStreamPropertyCache;
 		this.keyValueSerdeResolver = keyValueSerdeResolver;
+	}
+
+	@Override
+	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+		Assert.isInstanceOf(AbstractApplicationContext.class, applicationContext);
+		this.applicationContext = (AbstractApplicationContext) applicationContext;
 	}
 
 	@Override
 	public KStream createInput(String name) {
 
 		BindingProperties bindingProperties = bindingServiceProperties.getBindingProperties(name);
-
+		String destination = bindingProperties.getDestination();
+		if (destination == null) {
+			destination = name;
+		}
 		Serde<?> keySerde = this.keyValueSerdeResolver.getInboundKeySerde(name);
 		Serde<?> valueSerde = this.keyValueSerdeResolver.getInboundValueSerde(name);
 
-		KStream<?,?> stream = kStreamBuilder.stream(bindingServiceProperties.getBindingDestination(name),
+		ConfigurableListableBeanFactory beanFactory = this.applicationContext.getBeanFactory();
+		CustomizedStreamsBuilderFactoryBean streamBilder = new CustomizedStreamsBuilderFactoryBean();
+		streamBilder.setPhase(Integer.MAX_VALUE - 500);
+		beanFactory.registerSingleton("stream-builder-" + destination, streamBilder);
+		beanFactory.initializeBean(streamBilder, "stream-builder-" + destination);
+
+		StreamsBuilder streamBuilder = null;
+		try {
+			streamBuilder = streamBilder.getObject();
+		} catch (Exception e) {
+			//log and bail
+		}
+
+		KStream<?,?> stream = streamBuilder.stream(bindingServiceProperties.getBindingDestination(name),
 						Consumed.with(keySerde, valueSerde));
 		stream = stream.map((key, value) -> {
 			KeyValue<Object, Object> keyValue;

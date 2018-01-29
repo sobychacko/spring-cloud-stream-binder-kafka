@@ -18,7 +18,6 @@ package org.springframework.cloud.stream.binder.kstream.config;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.kafka.streams.StreamsConfig;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -53,12 +52,11 @@ public class KStreamBinderConfiguration {
 	public KStreamBinder kStreamBinder(KStreamBinderConfigurationProperties binderConfigurationProperties,
 									KafkaTopicProvisioner kafkaTopicProvisioner,
 									KStreamExtendedBindingProperties kStreamExtendedBindingProperties,
-									StreamsConfig streamsConfig,
 									KStreamBoundMessageConversionDelegate KStreamBoundMessageConversionDelegate,
 									BoundedKStreamPropertyCache boundedKStreamPropertyCache,
 									KeyValueSerdeResolver keyValueSerdeResolver) {
 		return new KStreamBinder(binderConfigurationProperties, kafkaTopicProvisioner, kStreamExtendedBindingProperties,
-				streamsConfig, KStreamBoundMessageConversionDelegate, boundedKStreamPropertyCache, keyValueSerdeResolver);
+				KStreamBoundMessageConversionDelegate, boundedKStreamPropertyCache, keyValueSerdeResolver);
 	}
 
 }

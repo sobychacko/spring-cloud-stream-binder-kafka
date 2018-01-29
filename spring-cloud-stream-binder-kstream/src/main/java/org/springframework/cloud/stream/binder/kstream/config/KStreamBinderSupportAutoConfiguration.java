@@ -20,15 +20,10 @@ import java.util.Collection;
 import java.util.Properties;
 
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
-import org.apache.kafka.streams.errors.DeserializationExceptionHandler;
 import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
 import org.apache.kafka.streams.errors.LogAndFailExceptionHandler;
 
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.UnsatisfiedDependencyException;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.stream.binder.kstream.BoundedKStreamPropertyCache;
@@ -43,9 +38,6 @@ import org.springframework.cloud.stream.binding.StreamListenerResultAdapter;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.cloud.stream.converter.CompositeMessageConverterFactory;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.support.AbstractApplicationContext;
-import org.springframework.kafka.annotation.KafkaStreamsDefaultConfiguration;
-import org.springframework.kafka.core.StreamsBuilderFactoryBean;
 import org.springframework.util.ObjectUtils;
 
 /**
@@ -61,24 +53,8 @@ public class KStreamBinderSupportAutoConfiguration {
 		return new KStreamBinderConfigurationProperties();
 	}
 
-	@Bean(name = KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_BUILDER_BEAN_NAME)
-	public StreamsBuilderFactoryBean defaultKafkaStreamBuilder(
-			@Qualifier(KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME) ObjectProvider<StreamsConfig> streamsConfigProvider) {
-		StreamsConfig streamsConfig = streamsConfigProvider.getIfAvailable();
-		if (streamsConfig != null) {
-			StreamsBuilderFactoryBean kStreamBuilderFactoryBean = new StreamsBuilderFactoryBean(streamsConfig);
-			kStreamBuilderFactoryBean.setPhase(Integer.MAX_VALUE - 500);
-			return kStreamBuilderFactoryBean;
-		} else {
-			throw new UnsatisfiedDependencyException(KafkaStreamsDefaultConfiguration.class.getName(),
-					KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_BUILDER_BEAN_NAME, "streamsConfig",
-					"There is no '" + KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME
-							+ "' StreamsConfig bean in the application context.\n");
-		}
-	}
-
-	@Bean(KafkaStreamsDefaultConfiguration.DEFAULT_STREAMS_CONFIG_BEAN_NAME)
-	public StreamsConfig streamsConfig(KStreamBinderConfigurationProperties binderConfigurationProperties, AbstractApplicationContext applicationContext) {
+	@Bean("streamConfigGlobalProperties")
+	public Properties streamConfigGlobalProperties(KStreamBinderConfigurationProperties binderConfigurationProperties){
 		Properties props = new Properties();
 		props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, binderConfigurationProperties.getKafkaConnectionString());
 		props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.ByteArraySerde.class.getName());
@@ -101,31 +77,8 @@ public class KStreamBinderSupportAutoConfiguration {
 		if (!ObjectUtils.isEmpty(binderConfigurationProperties.getConfiguration())) {
 			props.putAll(binderConfigurationProperties.getConfiguration());
 		}
-		props.put("spring.application.context", applicationContext);
 
-
-		StreamsConfig streamsConfig = new StreamsConfig(props) {
-
-			DeserializationExceptionHandler deserializationExceptionHandler;
-
-			@Override
-			@SuppressWarnings("unchecked")
-			public <T> T getConfiguredInstance(String key, Class<T> t) {
-				if (key.equals(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG)){
-					if (deserializationExceptionHandler != null){
-						return (T)deserializationExceptionHandler;
-					}
-					else {
-						T t1 = super.getConfiguredInstance(key, t);
-						deserializationExceptionHandler = (DeserializationExceptionHandler)t1;
-						return t1;
-					}
-				}
-				return super.getConfiguredInstance(key, t);
-			}
-		};
-
-		return streamsConfig;
+		return props;
 	}
 
 	@Bean
@@ -156,11 +109,10 @@ public class KStreamBinderSupportAutoConfiguration {
 	}
 
 	@Bean
-	public KStreamBoundElementFactory kafkaStreamBindableTargetFactory(StreamsBuilder kStreamBuilder,
-																	BindingServiceProperties bindingServiceProperties,
+	public KStreamBoundElementFactory kafkaStreamBindableTargetFactory(BindingServiceProperties bindingServiceProperties,
 																	BoundedKStreamPropertyCache boundedKStreamPropertyCache,
 																	KeyValueSerdeResolver keyValueSerdeResolver) {
-		return new KStreamBoundElementFactory(kStreamBuilder, bindingServiceProperties,
+		return new KStreamBoundElementFactory(bindingServiceProperties,
 				boundedKStreamPropertyCache, keyValueSerdeResolver);
 	}
 
@@ -175,10 +127,10 @@ public class KStreamBinderSupportAutoConfiguration {
 	}
 
 	@Bean
-	public KeyValueSerdeResolver keyValueSerdeResolver(StreamsConfig streamsConfig, BindingServiceProperties bindingServiceProperties,
+	public KeyValueSerdeResolver keyValueSerdeResolver(BindingServiceProperties bindingServiceProperties,
 													KStreamBinderConfigurationProperties kStreamBinderConfigurationProperties,
 													KStreamExtendedBindingProperties kStreamExtendedBindingProperties) {
-		return new KeyValueSerdeResolver(streamsConfig, bindingServiceProperties,
+		return new KeyValueSerdeResolver(bindingServiceProperties,
 				kStreamBinderConfigurationProperties, kStreamExtendedBindingProperties);
 	}
 }

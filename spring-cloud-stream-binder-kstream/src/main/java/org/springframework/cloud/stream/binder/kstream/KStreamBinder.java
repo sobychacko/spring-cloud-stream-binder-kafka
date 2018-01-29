@@ -16,12 +16,15 @@
 
 package org.springframework.cloud.stream.binder.kstream;
 
+import java.util.Properties;
+
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.errors.DeserializationExceptionHandler;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.Produced;
 
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.cloud.stream.binder.AbstractBinder;
 import org.springframework.cloud.stream.binder.Binding;
 import org.springframework.cloud.stream.binder.DefaultBinding;
@@ -49,8 +52,6 @@ public class KStreamBinder extends
 
 	private final KStreamExtendedBindingProperties kStreamExtendedBindingProperties;
 
-	private final StreamsConfig streamsConfig;
-
 	private final KStreamBinderConfigurationProperties binderConfigurationProperties;
 
 	private final KStreamBoundMessageConversionDelegate kStreamBoundMessageConversionDelegate;
@@ -61,12 +62,11 @@ public class KStreamBinder extends
 
 	public KStreamBinder(KStreamBinderConfigurationProperties binderConfigurationProperties,
 						KafkaTopicProvisioner kafkaTopicProvisioner,
-						KStreamExtendedBindingProperties kStreamExtendedBindingProperties, StreamsConfig streamsConfig,
+						KStreamExtendedBindingProperties kStreamExtendedBindingProperties, //StreamsConfig streamsConfig,
 						KStreamBoundMessageConversionDelegate kStreamBoundMessageConversionDelegate, BoundedKStreamPropertyCache boundedKStreamPropertyCache, KeyValueSerdeResolver keyValueSerdeResolver) {
 		this.binderConfigurationProperties = binderConfigurationProperties;
 		this.kafkaTopicProvisioner = kafkaTopicProvisioner;
 		this.kStreamExtendedBindingProperties = kStreamExtendedBindingProperties;
-		this.streamsConfig = streamsConfig;
 		this.kStreamBoundMessageConversionDelegate = kStreamBoundMessageConversionDelegate;
 		this.boundedKStreamPropertyCache = boundedKStreamPropertyCache;
 		this.keyValueSerdeResolver = keyValueSerdeResolver;
@@ -84,6 +84,38 @@ public class KStreamBinder extends
 			extendedConsumerProperties.getExtension().setEnableDlq(true);
 		}
 		this.kafkaTopicProvisioner.provisionConsumerDestination(name, group, extendedConsumerProperties);
+
+		//populate the per binding StreamConfig properties
+		Properties properties1 = getApplicationContext().getBean("streamConfigGlobalProperties", Properties.class);
+
+		CustomizedStreamsBuilderFactoryBean streamsBuilder = getApplicationContext().getBean("&stream-builder-" + name, CustomizedStreamsBuilderFactoryBean.class);
+
+		StreamsConfig streamsConfig = new StreamsConfig(properties1) {
+
+			DeserializationExceptionHandler deserializationExceptionHandler;
+
+			@Override
+			@SuppressWarnings("unchecked")
+			public <T> T getConfiguredInstance(String key, Class<T> t) {
+				if (key.equals(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG)){
+					if (deserializationExceptionHandler != null){
+						return (T)deserializationExceptionHandler;
+					}
+					else {
+						T t1 = super.getConfiguredInstance(key, t);
+						deserializationExceptionHandler = (DeserializationExceptionHandler)t1;
+						return t1;
+					}
+				}
+				return super.getConfiguredInstance(key, t);
+			}
+		};
+
+		ConfigurableListableBeanFactory beanFactory = getApplicationContext().getBeanFactory();
+		beanFactory.registerSingleton("streamsConfig-" + name, streamsConfig);
+		beanFactory.initializeBean(streamsConfig, "streamsConfig-" + name);
+
+		streamsBuilder.setStreamsConfig(streamsConfig);
 
 		if (extendedConsumerProperties.getExtension().isEnableDlq()) {
 			String dlqName = StringUtils.isEmpty(extendedConsumerProperties.getExtension().getDlqName()) ?
