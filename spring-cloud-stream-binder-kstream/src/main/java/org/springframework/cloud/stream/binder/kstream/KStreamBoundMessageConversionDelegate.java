@@ -19,14 +19,15 @@ package org.springframework.cloud.stream.binder.kstream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.processor.Processor;
 import org.apache.kafka.streams.processor.ProcessorContext;
 
-import org.springframework.cloud.stream.binder.kstream.config.KStreamBinderConfigurationProperties;
+import org.springframework.cloud.stream.binder.kstream.config.KStreamConsumerProperties;
 import org.springframework.cloud.stream.converter.CompositeMessageConverterFactory;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
@@ -41,26 +42,24 @@ import org.springframework.util.StringUtils;
  */
 public class KStreamBoundMessageConversionDelegate {
 
+	private static final ThreadLocal<KeyValue<Object, Object>> keyValueThreadLocal = new ThreadLocal<>();
+
 	private final CompositeMessageConverterFactory compositeMessageConverterFactory;
 
 	private final SendToDlqAndContinue sendToDlqAndContinue;
 
-	private final KStreamBinderConfigurationProperties kStreamBinderConfigurationProperties;
-
-	private final BoundedKStreamPropertyCache boundedKStreamPropertyCache;
+	private final BoundedKStreamRegistryService boundedKStreamRegistryService;
 
 	public KStreamBoundMessageConversionDelegate(CompositeMessageConverterFactory compositeMessageConverterFactory,
 												SendToDlqAndContinue sendToDlqAndContinue,
-												KStreamBinderConfigurationProperties kStreamBinderConfigurationProperties,
-												BoundedKStreamPropertyCache boundedKStreamPropertyCache) {
+												BoundedKStreamRegistryService boundedKStreamRegistryService) {
 		this.compositeMessageConverterFactory = compositeMessageConverterFactory;
 		this.sendToDlqAndContinue = sendToDlqAndContinue;
-		this.kStreamBinderConfigurationProperties = kStreamBinderConfigurationProperties;
-		this.boundedKStreamPropertyCache = boundedKStreamPropertyCache;
+		this.boundedKStreamRegistryService = boundedKStreamRegistryService;
 	}
 
 	public KStream serializeOnOutbound(KStream<?,?> outboundBindTarget) {
-		String contentType = this.boundedKStreamPropertyCache.getContentType(outboundBindTarget);
+		String contentType = this.boundedKStreamRegistryService.getContentType(outboundBindTarget);
 		MessageConverter messageConverter = StringUtils.hasText(contentType) ? compositeMessageConverterFactory
 				.getMessageConverterForType(MimeType.valueOf(contentType))
 				: null;
@@ -87,7 +86,9 @@ public class KStreamBoundMessageConversionDelegate {
 	public KStream deserializeOnInbound(Class<?> valueClass, KStream<?, ?> bindingTarget) {
 		MessageConverter messageConverter = compositeMessageConverterFactory.getMessageConverterForAllRegistered();
 
-		final AtomicReference<KeyValue<Object, Object>> keyValueAtomic = new AtomicReference<>();
+		//final AtomicReference<KeyValue<Object, Object>> keyValueAtomic = new AtomicReference<>();
+
+		final ConcurrentMap<Long, KeyValue<Object, Object>> keyValueMapPerThread = new ConcurrentHashMap<>();
 
 		KStream<?, ?>[] branch = bindingTarget.branch(
 			(o, o2) -> {
@@ -95,7 +96,8 @@ public class KStreamBoundMessageConversionDelegate {
 
 				try {
 					if (valueClass.isAssignableFrom(o2.getClass())) {
-						keyValueAtomic.set(new KeyValue<>(o, o2));
+						//keyValueAtomic.set(new KeyValue<>(o, o2));
+						keyValueMapPerThread.put(Thread.currentThread().getId(), new KeyValue<>(o, o2));
 					}
 					else if (o2 instanceof Message) {
 						Object payload = ((Message) o2).getPayload();
@@ -109,18 +111,20 @@ public class KStreamBoundMessageConversionDelegate {
 							if (messageConverted == null) {
 								throw new IllegalStateException("Inbound data conversion failed.");
 							}
-
-							keyValueAtomic.set(new KeyValue<>(o, messageConverted));
+							keyValueMapPerThread.put(Thread.currentThread().getId(), new KeyValue<>(o, messageConverted));
+							//keyValueAtomic.set(new KeyValue<>(o, messageConverted));
 						}
 						else if (valueClass.isAssignableFrom(((Message) o2).getPayload().getClass())) {
-							keyValueAtomic.set(new KeyValue<>(o, ((Message) o2).getPayload()));
+							//keyValueAtomic.set(new KeyValue<>(o, ((Message) o2).getPayload()));
+							keyValueMapPerThread.put(Thread.currentThread().getId(), new KeyValue<>(o, ((Message) o2).getPayload()));
 						}
 						else {
 							Object messageConverted = messageConverter.fromMessage((Message) o2, valueClass);
 							if (messageConverted == null) {
 								throw new IllegalStateException("Inbound data conversion failed.");
 							}
-							keyValueAtomic.set(new KeyValue<>(o, messageConverted));
+							keyValueMapPerThread.put(Thread.currentThread().getId(), new KeyValue<>(o, messageConverted));
+							//keyValueAtomic.set(new KeyValue<>(o, messageConverted));
 						}
 					}
 					else if (o2 instanceof String || o2 instanceof byte[]) {
@@ -129,10 +133,12 @@ public class KStreamBoundMessageConversionDelegate {
 						if (messageConverted == null) {
 							throw new IllegalStateException("Inbound data conversion failed.");
 						}
-						keyValueAtomic.set(new KeyValue<>(o, messageConverted));
+						keyValueMapPerThread.put(Thread.currentThread().getId(), new KeyValue<>(o, messageConverted));
+						//keyValueAtomic.set(new KeyValue<>(o, messageConverted));
 					}
 					else {
-						keyValueAtomic.set(new KeyValue<>(o, o2));
+						keyValueMapPerThread.put(Thread.currentThread().getId(), new KeyValue<>(o, o2));
+						//keyValueAtomic.set(new KeyValue<>(o, o2));
 					}
 					isValidRecord = true;
 				}
@@ -143,7 +149,15 @@ public class KStreamBoundMessageConversionDelegate {
 			},
 			(k, v) -> true
 		);
-		branch[1].process(() -> new Processor() {
+		processErrorFromDeserialization(bindingTarget, branch[1]);
+
+		return branch[0].map((o, o2) -> keyValueMapPerThread.get(Thread.currentThread().getId()));
+		//return branch[0].map((o, o2) -> keyValueAtomic.get());
+	}
+
+	@SuppressWarnings("unchecked")
+	private void processErrorFromDeserialization(KStream<?, ?> bindingTarget, KStream<?, ?> branch) {
+		branch.process(() -> new Processor() {
 			ProcessorContext context;
 
 			@Override
@@ -153,8 +167,8 @@ public class KStreamBoundMessageConversionDelegate {
 
 			@Override
 			public void process(Object o, Object o2) {
-				if (boundedKStreamPropertyCache.isEnableDlq(bindingTarget)) {
-					String destination = boundedKStreamPropertyCache.getDestination(bindingTarget);
+				if (boundedKStreamRegistryService.isEnableDlq(bindingTarget)) {
+					String destination = boundedKStreamRegistryService.getDestination(bindingTarget);
 					if (o2 instanceof Message) {
 						sendToDlqAndContinue.sendToDlq(destination, (byte[]) o, (byte[]) ((Message) o2).getPayload(), context.partition(), null);
 					}
@@ -162,11 +176,11 @@ public class KStreamBoundMessageConversionDelegate {
 						sendToDlqAndContinue.sendToDlq(destination, (byte[]) o, (byte[]) o2, context.partition(), null);
 					}
 				}
-				else if (kStreamBinderConfigurationProperties.getOnDeserializationError().isLogAndFail()) {
+				else if (boundedKStreamRegistryService.getSerdeError(bindingTarget) == KStreamConsumerProperties.SerdeError.logAndFail) {
 					throw new RuntimeException("Inbound deserialization failed.");
 				}
-				else {
-					//quietly pass through. No action needed, this is akin to log and continue.
+				else if (boundedKStreamRegistryService.getSerdeError(bindingTarget) == KStreamConsumerProperties.SerdeError.logAndContinue) {
+					//quietly pass through. No action needed, this is similar to log and continue.
 				}
 			}
 
@@ -180,7 +194,5 @@ public class KStreamBoundMessageConversionDelegate {
 
 			}
 		});
-
-		return branch[0].map((o, o2) -> keyValueAtomic.get());
 	}
 }

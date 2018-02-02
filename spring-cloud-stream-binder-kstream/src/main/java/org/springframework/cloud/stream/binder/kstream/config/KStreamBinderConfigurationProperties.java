@@ -23,44 +23,14 @@ import org.springframework.cloud.stream.binder.kafka.properties.KafkaBinderConfi
  */
 public class KStreamBinderConfigurationProperties extends KafkaBinderConfigurationProperties {
 
-	private OnDeserializationError onDeserializationError = new OnDeserializationError();
+	private String applicationId = "default";
 
-	public OnDeserializationError getOnDeserializationError() {
-		return onDeserializationError;
+	public String getApplicationId() {
+		return applicationId;
 	}
 
-	public void setOnDeserializationError(OnDeserializationError onDeserializationError) {
-		this.onDeserializationError = onDeserializationError;
+	public void setApplicationId(String applicationId) {
+		this.applicationId = applicationId;
 	}
 
-	public static class OnDeserializationError {
-
-		boolean logAndContinue = false;
-		boolean logAndFail = false;
-		boolean sendToDlq = false;
-
-		public boolean isLogAndContinue() {
-			return logAndContinue;
-		}
-
-		public void setLogAndContinue(boolean logAndContinue) {
-			this.logAndContinue = logAndContinue;
-		}
-
-		public boolean isLogAndFail() {
-			return logAndFail;
-		}
-
-		public void setLogAndFail(boolean logAndFail) {
-			this.logAndFail = logAndFail;
-		}
-
-		public boolean isSendToDlq() {
-			return sendToDlq;
-		}
-
-		public void setSendToDlq(boolean sendToDlq) {
-			this.sendToDlq = sendToDlq;
-		}
-	}
 }

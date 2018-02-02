@@ -16,18 +16,17 @@
 
 package org.springframework.cloud.stream.binder.kstream;
 
-import org.apache.kafka.common.Configurable;
+import java.util.Map;
+
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.common.utils.Utils;
 
-import org.springframework.cloud.stream.binder.ExtendedProducerProperties;
+import org.springframework.cloud.stream.binder.ConsumerProperties;
+import org.springframework.cloud.stream.binder.ProducerProperties;
 import org.springframework.cloud.stream.binder.kstream.config.KStreamBinderConfigurationProperties;
 import org.springframework.cloud.stream.binder.kstream.config.KStreamConsumerProperties;
-import org.springframework.cloud.stream.binder.kstream.config.KStreamExtendedBindingProperties;
 import org.springframework.cloud.stream.binder.kstream.config.KStreamProducerProperties;
-import org.springframework.cloud.stream.config.BindingProperties;
-import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.util.StringUtils;
 
 /**
@@ -35,34 +34,61 @@ import org.springframework.util.StringUtils;
  */
 public class KeyValueSerdeResolver {
 
-	private final BindingServiceProperties bindingServiceProperties;
-
-	private final KStreamExtendedBindingProperties kStreamExtendedBindingProperties;
-
-	//private final StreamsConfig streamsConfig;
+	private final Map<String,Object> streamConfigGlobalProperties;
 
 	private final KStreamBinderConfigurationProperties binderConfigurationProperties;
 
-	public KeyValueSerdeResolver(//StreamsConfig streamsConfig,
-								BindingServiceProperties bindingServiceProperties,
-								KStreamBinderConfigurationProperties binderConfigurationProperties,
-								KStreamExtendedBindingProperties kStreamExtendedBindingProperties) {
-		//this.streamsConfig = streamsConfig;
-		this.bindingServiceProperties = bindingServiceProperties;
+	public KeyValueSerdeResolver(Map<String,Object> streamConfigGlobalProperties,
+								 KStreamBinderConfigurationProperties binderConfigurationProperties) {
+		this.streamConfigGlobalProperties = streamConfigGlobalProperties;
 		this.binderConfigurationProperties = binderConfigurationProperties;
-		this.kStreamExtendedBindingProperties = kStreamExtendedBindingProperties;
 	}
 
-	public Serde<?> getInboundKeySerde(String binding) {
-		KStreamConsumerProperties extendedConsumerProperties =
-				kStreamExtendedBindingProperties.getExtendedConsumerProperties(binding);
+	public Serde<?> getInboundKeySerde(KStreamConsumerProperties extendedConsumerProperties) {
 		String keySerdeString = extendedConsumerProperties.getKeySerde();
 
 		return getKeySerde(keySerdeString);
 	}
 
-	public Serde<?> getOuboundKeySerde(ExtendedProducerProperties<KStreamProducerProperties> properties) {
-		return getKeySerde(properties.getExtension().getKeySerde());
+	public Serde<?> getInboundValueSerde(ConsumerProperties consumerProperties, KStreamConsumerProperties extendedConsumerProperties) {
+		Serde<?> valueSerde;
+
+		String valueSerdeString = extendedConsumerProperties.getValueSerde();
+		try {
+			if (consumerProperties != null &&
+					consumerProperties.isUseNativeDecoding()) {
+				valueSerde = getValueSerde(valueSerdeString);
+			}
+			else {
+				valueSerde = Serdes.ByteArray();
+			}
+			valueSerde.configure(streamConfigGlobalProperties, false);
+		}
+		catch (ClassNotFoundException e) {
+			throw new IllegalStateException("Serde class not found: ", e);
+		}
+		return valueSerde;
+	}
+
+	public Serde<?> getOuboundKeySerde(KStreamProducerProperties properties) {
+		return getKeySerde(properties.getKeySerde());
+	}
+
+	public Serde<?> getOutboundValueSerde(ProducerProperties producerProperties, KStreamProducerProperties kStreamProducerProperties) {
+		Serde<?> valueSerde;
+		try {
+			if (producerProperties.isUseNativeEncoding()) {
+				valueSerde = getValueSerde(kStreamProducerProperties.getValueSerde());
+			}
+			else {
+				valueSerde = Serdes.ByteArray();
+			}
+			valueSerde.configure(streamConfigGlobalProperties, false);
+		}
+		catch (ClassNotFoundException e) {
+			throw new IllegalStateException("Serde class not found: ", e);
+		}
+		return valueSerde;
 	}
 
 	private Serde<?> getKeySerde(String keySerdeString) {
@@ -70,13 +96,12 @@ public class KeyValueSerdeResolver {
 		try {
 			if (StringUtils.hasText(keySerdeString)) {
 				keySerde = Utils.newInstance(keySerdeString, Serde.class);
-				if (keySerde instanceof Configurable) {
-					//((Configurable) keySerde).configure(streamsConfig.originals());
-				}
-			} else {
+			}
+			else {
 				keySerde = this.binderConfigurationProperties.getConfiguration().containsKey("key.serde") ?
 						Utils.newInstance(this.binderConfigurationProperties.getConfiguration().get("key.serde"), Serde.class) : Serdes.ByteArray();
 			}
+			keySerde.configure(streamConfigGlobalProperties, true);
 
 		} catch (ClassNotFoundException e) {
 			throw new IllegalStateException("Serde class not found: ", e);
@@ -84,51 +109,10 @@ public class KeyValueSerdeResolver {
 		return keySerde;
 	}
 
-	public Serde<?> getInboundValueSerde(String binding) {
-		Serde<?> valueSerde;
-
-		KStreamConsumerProperties extendedConsumerProperties =
-				kStreamExtendedBindingProperties.getExtendedConsumerProperties(binding);
-		String valueSerdeString = extendedConsumerProperties.getValueSerde();
-		BindingProperties bindingProperties = bindingServiceProperties.getBindingProperties(binding);
-		try {
-			if (bindingProperties.getConsumer() != null &&
-					bindingProperties.getConsumer().isUseNativeDecoding()) {
-				valueSerde = getValueSerde(valueSerdeString);
-			}
-			else {
-				valueSerde = Serdes.ByteArray();
-			}
-		}
-		catch (ClassNotFoundException e) {
-			throw new IllegalStateException("Serde class not found: ", e);
-		}
-		return valueSerde;
-	}
-
-	public Serde<?> getOutboundValueSerde(ExtendedProducerProperties<KStreamProducerProperties> properties) {
-		Serde<?> valueSerde;
-		try {
-			if (properties.isUseNativeEncoding()) {
-				valueSerde = getValueSerde(properties.getExtension().getValueSerde());
-			}
-			else {
-				valueSerde = Serdes.ByteArray();
-			}
-		}
-		catch (ClassNotFoundException e) {
-			throw new IllegalStateException("Serde class not found: ", e);
-		}
-		return valueSerde;
-	}
-
 	private Serde<?> getValueSerde(String valueSerdeString) throws ClassNotFoundException {
 		Serde<?> valueSerde;
 		if (StringUtils.hasText(valueSerdeString)) {
 			valueSerde = Utils.newInstance(valueSerdeString, Serde.class);
-			if (valueSerde instanceof Configurable) {
-				//((Configurable) valueSerde).configure(streamsConfig.originals());
-			}
 		}
 		else {
 			valueSerde = this.binderConfigurationProperties.getConfiguration().containsKey("value.serde") ?

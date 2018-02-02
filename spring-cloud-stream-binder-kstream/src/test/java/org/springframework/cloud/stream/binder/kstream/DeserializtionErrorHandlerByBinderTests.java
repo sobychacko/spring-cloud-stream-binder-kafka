@@ -60,7 +60,7 @@ import static org.mockito.Mockito.verify;
 public abstract class DeserializtionErrorHandlerByBinderTests {
 
 	@ClassRule
-	public static KafkaEmbedded embeddedKafka = new KafkaEmbedded(1, true, "counts-id", "error.foos.group-id");
+	public static KafkaEmbedded embeddedKafka = new KafkaEmbedded(1, true, "counts-id", "error.foos.foobar-group");
 
 	@SpyBean
 	KStreamBoundMessageConversionDelegate KStreamBoundMessageConversionDelegate;
@@ -79,7 +79,7 @@ public abstract class DeserializtionErrorHandlerByBinderTests {
 		System.setProperty("server.port","0");
 		System.setProperty("spring.jmx.enabled","false");
 
-		Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("group-id", "false", embeddedKafka);
+		Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("foobar-group", "false", embeddedKafka);
 		//consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, Deserializer.class.getName());
 		consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 		DefaultKafkaConsumerFactory<Integer, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
@@ -102,8 +102,8 @@ public abstract class DeserializtionErrorHandlerByBinderTests {
 			"spring.cloud.stream.bindings.output.producer.headerMode=raw",
 			"spring.cloud.stream.kstream.bindings.output.producer.keySerde=org.apache.kafka.common.serialization.Serdes$IntegerSerde",
 			"spring.cloud.stream.bindings.input.consumer.headerMode=raw",
-			"spring.cloud.stream.kstream.binder.onDeserializationError.sendToDlq=true",
-			"spring.cloud.stream.bindings.input.group=group-id"},
+			"spring.cloud.stream.kstream.bindings.input.consumer.serdeError=sendToDlq",
+			"spring.cloud.stream.bindings.input.group=foobar-group"},
 			webEnvironment= SpringBootTest.WebEnvironment.NONE
 	)
 	public static class DeserializationByBinderAndDlqTests extends DeserializtionErrorHandlerByBinderTests {
@@ -124,9 +124,9 @@ public abstract class DeserializtionErrorHandlerByBinderTests {
 			consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 			DefaultKafkaConsumerFactory<String, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
 			Consumer<String, String> consumer1 = cf.createConsumer();
-			embeddedKafka.consumeFromAnEmbeddedTopic(consumer1, "error.foos.group-id");
+			embeddedKafka.consumeFromAnEmbeddedTopic(consumer1, "error.foos.foobar-group");
 
-			ConsumerRecord<String, String> cr = KafkaTestUtils.getSingleRecord(consumer1, "error.foos.group-id");
+			ConsumerRecord<String, String> cr = KafkaTestUtils.getSingleRecord(consumer1, "error.foos.foobar-group");
 			assertThat(cr.value().equals("hello")).isTrue();
 
 			//Ensuring that the deserialization was indeed done by the binder

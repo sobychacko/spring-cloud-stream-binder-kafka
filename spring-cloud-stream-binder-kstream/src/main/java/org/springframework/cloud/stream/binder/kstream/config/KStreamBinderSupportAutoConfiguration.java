@@ -17,16 +17,16 @@
 package org.springframework.cloud.stream.binder.kstream.config;
 
 import java.util.Collection;
-import java.util.Properties;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsConfig;
-import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
-import org.apache.kafka.streams.errors.LogAndFailExceptionHandler;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.stream.binder.kstream.BoundedKStreamPropertyCache;
+import org.springframework.cloud.stream.binder.kstream.BoundedKStreamRegistryService;
 import org.springframework.cloud.stream.binder.kstream.KStreamBoundElementFactory;
 import org.springframework.cloud.stream.binder.kstream.KStreamBoundMessageConversionDelegate;
 import org.springframework.cloud.stream.binder.kstream.KStreamListenerParameterAdapter;
@@ -54,25 +54,12 @@ public class KStreamBinderSupportAutoConfiguration {
 	}
 
 	@Bean("streamConfigGlobalProperties")
-	public Properties streamConfigGlobalProperties(KStreamBinderConfigurationProperties binderConfigurationProperties){
-		Properties props = new Properties();
+	public Map<String,Object> streamConfigGlobalProperties(KStreamBinderConfigurationProperties binderConfigurationProperties){
+		Map<String,Object> props = new HashMap<>();
 		props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, binderConfigurationProperties.getKafkaConnectionString());
 		props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.ByteArraySerde.class.getName());
 		props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.ByteArraySerde.class.getName());
-		props.put(StreamsConfig.APPLICATION_ID_CONFIG, "default");
-
-		if(binderConfigurationProperties.getOnDeserializationError().logAndContinue) {
-			props.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG,
-					LogAndContinueExceptionHandler.class);
-		}
-		else if(binderConfigurationProperties.getOnDeserializationError().logAndFail) {
-			props.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG,
-					LogAndFailExceptionHandler.class);
-		}
-		else if (binderConfigurationProperties.getOnDeserializationError().sendToDlq) {
-			props.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG,
-					SendToDlqAndContinue.class);
-		}
+		props.put(StreamsConfig.APPLICATION_ID_CONFIG, binderConfigurationProperties.getApplicationId());
 
 		if (!ObjectUtils.isEmpty(binderConfigurationProperties.getConfiguration())) {
 			props.putAll(binderConfigurationProperties.getConfiguration());
@@ -88,8 +75,8 @@ public class KStreamBinderSupportAutoConfiguration {
 
 	@Bean
 	public KStreamListenerParameterAdapter kafkaStreamListenerParameterAdapter(
-			KStreamBoundMessageConversionDelegate kstreamBoundMessageConversionDelegate, BoundedKStreamPropertyCache boundedKStreamPropertyCache) {
-		return new KStreamListenerParameterAdapter(kstreamBoundMessageConversionDelegate, boundedKStreamPropertyCache);
+			KStreamBoundMessageConversionDelegate kstreamBoundMessageConversionDelegate, BoundedKStreamRegistryService boundedKStreamRegistryService) {
+		return new KStreamListenerParameterAdapter(kstreamBoundMessageConversionDelegate, boundedKStreamRegistryService);
 	}
 
 	@Bean
@@ -102,18 +89,20 @@ public class KStreamBinderSupportAutoConfiguration {
 	@Bean
 	public KStreamBoundMessageConversionDelegate messageConversionDelegate(CompositeMessageConverterFactory compositeMessageConverterFactory,
 																		SendToDlqAndContinue sendToDlqAndContinue,
-																		KStreamBinderConfigurationProperties kStreamBinderConfigurationProperties,
-																		BoundedKStreamPropertyCache boundedKStreamPropertyCache) {
+																		BoundedKStreamRegistryService boundedKStreamRegistryService) {
 		return new KStreamBoundMessageConversionDelegate(compositeMessageConverterFactory, sendToDlqAndContinue,
-				kStreamBinderConfigurationProperties, boundedKStreamPropertyCache);
+				boundedKStreamRegistryService);
 	}
 
 	@Bean
 	public KStreamBoundElementFactory kafkaStreamBindableTargetFactory(BindingServiceProperties bindingServiceProperties,
-																	BoundedKStreamPropertyCache boundedKStreamPropertyCache,
-																	KeyValueSerdeResolver keyValueSerdeResolver) {
-		return new KStreamBoundElementFactory(bindingServiceProperties,
-				boundedKStreamPropertyCache, keyValueSerdeResolver);
+																	BoundedKStreamRegistryService boundedKStreamRegistryService,
+																	KeyValueSerdeResolver keyValueSerdeResolver,
+																	   KStreamExtendedBindingProperties kStreamExtendedBindingProperties) {
+		KStreamBoundElementFactory kStreamBoundElementFactory = new KStreamBoundElementFactory(bindingServiceProperties,
+				boundedKStreamRegistryService, keyValueSerdeResolver);
+		kStreamBoundElementFactory.setkStreamExtendedBindingProperties(kStreamExtendedBindingProperties);
+		return kStreamBoundElementFactory;
 	}
 
 	@Bean
@@ -122,15 +111,13 @@ public class KStreamBinderSupportAutoConfiguration {
 	}
 
 	@Bean
-	public BoundedKStreamPropertyCache kStreamBoundTargetInformation() {
-		return new BoundedKStreamPropertyCache();
+	public BoundedKStreamRegistryService boundedKStreamRegistryService() {
+		return new BoundedKStreamRegistryService();
 	}
 
 	@Bean
-	public KeyValueSerdeResolver keyValueSerdeResolver(BindingServiceProperties bindingServiceProperties,
-													KStreamBinderConfigurationProperties kStreamBinderConfigurationProperties,
-													KStreamExtendedBindingProperties kStreamExtendedBindingProperties) {
-		return new KeyValueSerdeResolver(bindingServiceProperties,
-				kStreamBinderConfigurationProperties, kStreamExtendedBindingProperties);
+	public KeyValueSerdeResolver keyValueSerdeResolver(@Qualifier("streamConfigGlobalProperties") Map<String,Object> streamConfigGlobalProperties,
+													KStreamBinderConfigurationProperties kStreamBinderConfigurationProperties) {
+		return new KeyValueSerdeResolver(streamConfigGlobalProperties, kStreamBinderConfigurationProperties);
 	}
 }

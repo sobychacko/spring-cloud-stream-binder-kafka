@@ -23,9 +23,17 @@ import org.springframework.cloud.stream.binder.kafka.properties.KafkaConsumerPro
  */
 public class KStreamConsumerProperties extends KafkaConsumerProperties {
 
+	public enum SerdeError {
+		logAndContinue,
+		logAndFail,
+		sendToDlq
+	}
+
 	private String keySerde;
 
 	private String valueSerde;
+
+	private SerdeError serdeError;
 
 	public String getKeySerde() {
 		return keySerde;
@@ -43,4 +51,11 @@ public class KStreamConsumerProperties extends KafkaConsumerProperties {
 		this.valueSerde = valueSerde;
 	}
 
+	public SerdeError getSerdeError() {
+		return serdeError;
+	}
+
+	public void setSerdeError(SerdeError serdeError) {
+		this.serdeError = serdeError;
+	}
 }

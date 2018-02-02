@@ -100,7 +100,7 @@ public abstract class DeserializationErrorHandlerByKafkaTests {
 			"spring.cloud.stream.bindings.input.consumer.useNativeDecoding=true",
 			"spring.cloud.stream.bindings.output.producer.useNativeEncoding=true",
 			"spring.cloud.stream.bindings.input.group=group",
-			"spring.cloud.stream.kstream.binder.onDeserializationError.sendToDlq=true",
+			"spring.cloud.stream.kstream.bindings.input.consumer.serdeError=sendToDlq",
 			"spring.cloud.stream.kstream.binder.configuration.value.serde=" +
 					"org.apache.kafka.common.serialization.Serdes$IntegerSerde"},
 			webEnvironment= SpringBootTest.WebEnvironment.NONE

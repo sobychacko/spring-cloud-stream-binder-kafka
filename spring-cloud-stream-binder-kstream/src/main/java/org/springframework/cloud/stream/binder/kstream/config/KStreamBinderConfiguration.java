@@ -23,7 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.cloud.stream.binder.kafka.properties.KafkaBinderConfigurationProperties;
 import org.springframework.cloud.stream.binder.kafka.provisioning.KafkaTopicProvisioner;
-import org.springframework.cloud.stream.binder.kstream.BoundedKStreamPropertyCache;
+import org.springframework.cloud.stream.binder.kstream.BoundedKStreamRegistryService;
 import org.springframework.cloud.stream.binder.kstream.KStreamBinder;
 import org.springframework.cloud.stream.binder.kstream.KStreamBoundMessageConversionDelegate;
 import org.springframework.cloud.stream.binder.kstream.KeyValueSerdeResolver;
@@ -43,6 +43,9 @@ public class KStreamBinderConfiguration {
 	@Autowired
 	private KafkaProperties kafkaProperties;
 
+	@Autowired
+	private KStreamExtendedBindingProperties kStreamExtendedBindingProperties;
+
 	@Bean
 	public KafkaTopicProvisioner provisioningProvider(KafkaBinderConfigurationProperties binderConfigurationProperties) {
 		return new KafkaTopicProvisioner(binderConfigurationProperties, kafkaProperties);
@@ -50,13 +53,14 @@ public class KStreamBinderConfiguration {
 
 	@Bean
 	public KStreamBinder kStreamBinder(KStreamBinderConfigurationProperties binderConfigurationProperties,
-									KafkaTopicProvisioner kafkaTopicProvisioner,
-									KStreamExtendedBindingProperties kStreamExtendedBindingProperties,
+									   KafkaTopicProvisioner kafkaTopicProvisioner,
 									KStreamBoundMessageConversionDelegate KStreamBoundMessageConversionDelegate,
-									BoundedKStreamPropertyCache boundedKStreamPropertyCache,
+									BoundedKStreamRegistryService boundedKStreamRegistryService,
 									KeyValueSerdeResolver keyValueSerdeResolver) {
-		return new KStreamBinder(binderConfigurationProperties, kafkaTopicProvisioner, kStreamExtendedBindingProperties,
-				KStreamBoundMessageConversionDelegate, boundedKStreamPropertyCache, keyValueSerdeResolver);
+		KStreamBinder kStreamBinder = new KStreamBinder(binderConfigurationProperties, kafkaTopicProvisioner,
+				KStreamBoundMessageConversionDelegate, boundedKStreamRegistryService, keyValueSerdeResolver);
+		kStreamBinder.setkStreamExtendedBindingProperties(kStreamExtendedBindingProperties);
+		return kStreamBinder;
 	}
 
 }
