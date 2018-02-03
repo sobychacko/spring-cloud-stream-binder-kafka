@@ -79,7 +79,7 @@ public abstract class DeserializtionErrorHandlerByBinderTests {
 		System.setProperty("server.port","0");
 		System.setProperty("spring.jmx.enabled","false");
 
-		Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("foobar-group", "false", embeddedKafka);
+		Map<String, Object> consumerProps = KafkaTestUtils.consumerProps("foob", "false", embeddedKafka);
 		//consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, Deserializer.class.getName());
 		consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 		DefaultKafkaConsumerFactory<Integer, String> cf = new DefaultKafkaConsumerFactory<>(consumerProps);
@@ -91,7 +91,6 @@ public abstract class DeserializtionErrorHandlerByBinderTests {
 	public static void tearDown() {
 		consumer.close();
 	}
-
 
 	@SpringBootTest(properties = {
 			"spring.cloud.stream.bindings.input.destination=foos",

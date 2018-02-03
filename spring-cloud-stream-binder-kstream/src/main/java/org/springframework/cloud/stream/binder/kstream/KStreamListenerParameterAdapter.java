@@ -31,12 +31,12 @@ import org.springframework.core.ResolvableType;
 public class KStreamListenerParameterAdapter implements StreamListenerParameterAdapter<KStream<?,?>, KStream<?, ?>> {
 
 	private final KStreamBoundMessageConversionDelegate kStreamBoundMessageConversionDelegate;
-	private final BoundedKStreamRegistryService boundedKStreamRegistryService;
+	private final KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue;
 
 	public KStreamListenerParameterAdapter(KStreamBoundMessageConversionDelegate kStreamBoundMessageConversionDelegate,
-										BoundedKStreamRegistryService boundedKStreamRegistryService) {
+										KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue) {
 		this.kStreamBoundMessageConversionDelegate = kStreamBoundMessageConversionDelegate;
-		this.boundedKStreamRegistryService = boundedKStreamRegistryService;
+		this.KStreamBindingInformationCatalogue = KStreamBindingInformationCatalogue;
 	}
 
 	@Override
@@ -51,7 +51,7 @@ public class KStreamListenerParameterAdapter implements StreamListenerParameterA
 		ResolvableType resolvableType = ResolvableType.forMethodParameter(parameter);
 		final Class<?> valueClass = (resolvableType.getGeneric(1).getRawClass() != null)
 				? (resolvableType.getGeneric(1).getRawClass()) : Object.class;
-		if (this.boundedKStreamRegistryService.isUseNativeDecoding(bindingTarget)) {
+		if (this.KStreamBindingInformationCatalogue.isUseNativeDecoding(bindingTarget)) {
 			return bindingTarget.map((KeyValueMapper) KeyValue::new);
 		}
 		else {

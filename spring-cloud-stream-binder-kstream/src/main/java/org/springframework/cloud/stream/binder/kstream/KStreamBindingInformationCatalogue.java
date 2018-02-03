@@ -25,7 +25,7 @@ import org.springframework.cloud.stream.binder.kstream.config.KStreamConsumerPro
 import org.springframework.cloud.stream.config.BindingProperties;
 
 /**
- * A registry containing all the inbound and outboud KStreams.
+ * A catalogue containing all the inbound and outboud KStreams.
  * It registers {@link BindingProperties} and {@link KStreamConsumerProperties}
  * for the bounded KStreams. This registry provides services for finding
  * specific binding level information for the bounded KStream. This includes
@@ -33,7 +33,7 @@ import org.springframework.cloud.stream.config.BindingProperties;
  *
  * @author Soby Chacko
  */
-public class BoundedKStreamRegistryService {
+public class KStreamBindingInformationCatalogue {
 
 	private Map<KStream<?, ?>, BindingProperties> bindingProperties = new ConcurrentHashMap<>();
 	private Map<KStream<?, ?>, KStreamConsumerProperties> consumerProperties = new ConcurrentHashMap<>();

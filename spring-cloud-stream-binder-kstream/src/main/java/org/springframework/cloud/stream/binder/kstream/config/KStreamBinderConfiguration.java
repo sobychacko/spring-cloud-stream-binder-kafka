@@ -23,10 +23,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.cloud.stream.binder.kafka.properties.KafkaBinderConfigurationProperties;
 import org.springframework.cloud.stream.binder.kafka.provisioning.KafkaTopicProvisioner;
-import org.springframework.cloud.stream.binder.kstream.BoundedKStreamRegistryService;
+import org.springframework.cloud.stream.binder.kstream.KStreamBindingInformationCatalogue;
 import org.springframework.cloud.stream.binder.kstream.KStreamBinder;
 import org.springframework.cloud.stream.binder.kstream.KStreamBoundMessageConversionDelegate;
 import org.springframework.cloud.stream.binder.kstream.KeyValueSerdeResolver;
+import org.springframework.cloud.stream.binder.kstream.QueryableStoreRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -55,10 +56,11 @@ public class KStreamBinderConfiguration {
 	public KStreamBinder kStreamBinder(KStreamBinderConfigurationProperties binderConfigurationProperties,
 									   KafkaTopicProvisioner kafkaTopicProvisioner,
 									KStreamBoundMessageConversionDelegate KStreamBoundMessageConversionDelegate,
-									BoundedKStreamRegistryService boundedKStreamRegistryService,
-									KeyValueSerdeResolver keyValueSerdeResolver) {
+									KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue,
+									KeyValueSerdeResolver keyValueSerdeResolver, QueryableStoreRegistry queryableStoreRegistry) {
 		KStreamBinder kStreamBinder = new KStreamBinder(binderConfigurationProperties, kafkaTopicProvisioner,
-				KStreamBoundMessageConversionDelegate, boundedKStreamRegistryService, keyValueSerdeResolver);
+				KStreamBoundMessageConversionDelegate, KStreamBindingInformationCatalogue,
+				keyValueSerdeResolver, queryableStoreRegistry);
 		kStreamBinder.setkStreamExtendedBindingProperties(kStreamExtendedBindingProperties);
 		return kStreamBinder;
 	}

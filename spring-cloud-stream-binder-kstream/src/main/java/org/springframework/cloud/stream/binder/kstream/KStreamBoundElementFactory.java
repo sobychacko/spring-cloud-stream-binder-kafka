@@ -35,6 +35,7 @@ import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.support.AbstractApplicationContext;
+import org.springframework.kafka.core.StreamsBuilderFactoryBean;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.support.MessageBuilder;
@@ -49,7 +50,7 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 
 	private final BindingServiceProperties bindingServiceProperties;
 
-	private final BoundedKStreamRegistryService boundedKStreamRegistryService;
+	private final KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue;
 
 	private final KeyValueSerdeResolver keyValueSerdeResolver;
 
@@ -58,11 +59,11 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 	private KStreamExtendedBindingProperties kStreamExtendedBindingProperties = new KStreamExtendedBindingProperties();
 
 	public KStreamBoundElementFactory(BindingServiceProperties bindingServiceProperties,
-									BoundedKStreamRegistryService boundedKStreamRegistryService,
+									KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue,
 									KeyValueSerdeResolver keyValueSerdeResolver) {
 		super(KStream.class);
 		this.bindingServiceProperties = bindingServiceProperties;
-		this.boundedKStreamRegistryService = boundedKStreamRegistryService;
+		this.KStreamBindingInformationCatalogue = KStreamBindingInformationCatalogue;
 		this.keyValueSerdeResolver = keyValueSerdeResolver;
 	}
 
@@ -91,14 +92,14 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 				extendedConsumerProperties);
 
 		ConfigurableListableBeanFactory beanFactory = this.applicationContext.getBeanFactory();
-		CustomizedStreamsBuilderFactoryBean streamBilder = new CustomizedStreamsBuilderFactoryBean();
-		streamBilder.setPhase(Integer.MAX_VALUE - 500);
-		beanFactory.registerSingleton("stream-builder-" + destination, streamBilder);
-		beanFactory.initializeBean(streamBilder, "stream-builder-" + destination);
+		StreamsBuilderFactoryBean streamsBuilder = new StreamsBuilderFactoryBean();
+		streamsBuilder.setAutoStartup(false);
+		beanFactory.registerSingleton("stream-builder-" + destination, streamsBuilder);
+		beanFactory.initializeBean(streamsBuilder, "stream-builder-" + destination);
 
 		StreamsBuilder streamBuilder = null;
 		try {
-			streamBuilder = streamBilder.getObject();
+			streamBuilder = streamsBuilder.getObject();
 		} catch (Exception e) {
 			//log and bail
 		}
@@ -118,7 +119,7 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 			}
 			return keyValue;
 		});
-		this.boundedKStreamRegistryService.registerBindingProperties(stream, bindingProperties);
+		this.KStreamBindingInformationCatalogue.registerBindingProperties(stream, bindingProperties);
 		return stream;
 	}
 
@@ -132,7 +133,7 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 		KStream proxy = (KStream) proxyFactory.getProxy();
 
 		BindingProperties bindingProperties = bindingServiceProperties.getBindingProperties(name);
-		this.boundedKStreamRegistryService.registerBindingProperties(proxy, bindingProperties);
+		this.KStreamBindingInformationCatalogue.registerBindingProperties(proxy, bindingProperties);
 		return proxy;
 	}
 

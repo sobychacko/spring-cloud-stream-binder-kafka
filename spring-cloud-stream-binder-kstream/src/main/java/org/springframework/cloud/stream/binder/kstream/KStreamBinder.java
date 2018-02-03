@@ -40,6 +40,7 @@ import org.springframework.cloud.stream.binder.kstream.config.KStreamBinderConfi
 import org.springframework.cloud.stream.binder.kstream.config.KStreamConsumerProperties;
 import org.springframework.cloud.stream.binder.kstream.config.KStreamExtendedBindingProperties;
 import org.springframework.cloud.stream.binder.kstream.config.KStreamProducerProperties;
+import org.springframework.kafka.core.StreamsBuilderFactoryBean;
 import org.springframework.util.StringUtils;
 
 /**
@@ -58,20 +59,24 @@ public class KStreamBinder extends
 
 	private final KStreamBoundMessageConversionDelegate kStreamBoundMessageConversionDelegate;
 
-	private final BoundedKStreamRegistryService boundedKStreamRegistryService;
+	private final KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue;
 
 	private final KeyValueSerdeResolver keyValueSerdeResolver;
+
+	private final QueryableStoreRegistry queryableStoreRegistry;
 
 	public KStreamBinder(KStreamBinderConfigurationProperties binderConfigurationProperties,
 						 KafkaTopicProvisioner kafkaTopicProvisioner,
 						 KStreamBoundMessageConversionDelegate kStreamBoundMessageConversionDelegate,
-						 BoundedKStreamRegistryService boundedKStreamRegistryService,
-						 KeyValueSerdeResolver keyValueSerdeResolver) {
+						 KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue,
+						 KeyValueSerdeResolver keyValueSerdeResolver,
+						 QueryableStoreRegistry queryableStoreRegistry) {
 		this.binderConfigurationProperties = binderConfigurationProperties;
 		this.kafkaTopicProvisioner = kafkaTopicProvisioner;
 		this.kStreamBoundMessageConversionDelegate = kStreamBoundMessageConversionDelegate;
-		this.boundedKStreamRegistryService = boundedKStreamRegistryService;
+		this.KStreamBindingInformationCatalogue = KStreamBindingInformationCatalogue;
 		this.keyValueSerdeResolver = keyValueSerdeResolver;
+		this.queryableStoreRegistry = queryableStoreRegistry;
 	}
 
 	@Override
@@ -80,7 +85,7 @@ public class KStreamBinder extends
 															KStream<Object, Object> inputTarget,
 															ExtendedConsumerProperties<KStreamConsumerProperties> properties) {
 
-		this.boundedKStreamRegistryService.registerConsumerProperties(inputTarget, properties.getExtension());
+		this.KStreamBindingInformationCatalogue.registerConsumerProperties(inputTarget, properties.getExtension());
 		ExtendedConsumerProperties<KafkaConsumerProperties> extendedConsumerProperties = new ExtendedConsumerProperties<>(
 				properties.getExtension());
 		if (properties.getExtension().getSerdeError() == KStreamConsumerProperties.SerdeError.sendToDlq) {
@@ -94,7 +99,7 @@ public class KStreamBinder extends
 		//populate the per binding StreamConfig properties
 		Map<String, Object> streamConfigGlobalProperties = getApplicationContext().getBean("streamConfigGlobalProperties", Map.class);
 
-		CustomizedStreamsBuilderFactoryBean streamsBuilder = getApplicationContext().getBean("&stream-builder-" + name, CustomizedStreamsBuilderFactoryBean.class);
+		StreamsBuilderFactoryBean streamsBuilder = getApplicationContext().getBean("&stream-builder-" + name, StreamsBuilderFactoryBean.class);
 
 		streamConfigGlobalProperties.put(StreamsConfig.APPLICATION_ID_CONFIG, group);
 
@@ -137,6 +142,8 @@ public class KStreamBinder extends
 		beanFactory.initializeBean(streamsConfig, "streamsConfig-" + name);
 
 		streamsBuilder.setStreamsConfig(streamsConfig);
+		streamsBuilder.start();
+		queryableStoreRegistry.registerKafkaStreams(streamsBuilder.getKafkaStreams());
 
 		if (extendedConsumerProperties.getExtension().isEnableDlq()) {
 			String dlqName = StringUtils.isEmpty(extendedConsumerProperties.getExtension().getDlqName()) ?

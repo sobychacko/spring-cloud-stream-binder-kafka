@@ -26,13 +26,14 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.stream.binder.kstream.BoundedKStreamRegistryService;
+import org.springframework.cloud.stream.binder.kstream.KStreamBindingInformationCatalogue;
 import org.springframework.cloud.stream.binder.kstream.KStreamBoundElementFactory;
 import org.springframework.cloud.stream.binder.kstream.KStreamBoundMessageConversionDelegate;
 import org.springframework.cloud.stream.binder.kstream.KStreamListenerParameterAdapter;
 import org.springframework.cloud.stream.binder.kstream.KStreamListenerSetupMethodOrchestrator;
 import org.springframework.cloud.stream.binder.kstream.KStreamStreamListenerResultAdapter;
 import org.springframework.cloud.stream.binder.kstream.KeyValueSerdeResolver;
+import org.springframework.cloud.stream.binder.kstream.QueryableStoreRegistry;
 import org.springframework.cloud.stream.binder.kstream.SendToDlqAndContinue;
 import org.springframework.cloud.stream.binding.StreamListenerResultAdapter;
 import org.springframework.cloud.stream.config.BindingServiceProperties;
@@ -75,8 +76,8 @@ public class KStreamBinderSupportAutoConfiguration {
 
 	@Bean
 	public KStreamListenerParameterAdapter kafkaStreamListenerParameterAdapter(
-			KStreamBoundMessageConversionDelegate kstreamBoundMessageConversionDelegate, BoundedKStreamRegistryService boundedKStreamRegistryService) {
-		return new KStreamListenerParameterAdapter(kstreamBoundMessageConversionDelegate, boundedKStreamRegistryService);
+			KStreamBoundMessageConversionDelegate kstreamBoundMessageConversionDelegate, KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue) {
+		return new KStreamListenerParameterAdapter(kstreamBoundMessageConversionDelegate, KStreamBindingInformationCatalogue);
 	}
 
 	@Bean
@@ -89,18 +90,18 @@ public class KStreamBinderSupportAutoConfiguration {
 	@Bean
 	public KStreamBoundMessageConversionDelegate messageConversionDelegate(CompositeMessageConverterFactory compositeMessageConverterFactory,
 																		SendToDlqAndContinue sendToDlqAndContinue,
-																		BoundedKStreamRegistryService boundedKStreamRegistryService) {
+																		KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue) {
 		return new KStreamBoundMessageConversionDelegate(compositeMessageConverterFactory, sendToDlqAndContinue,
-				boundedKStreamRegistryService);
+				KStreamBindingInformationCatalogue);
 	}
 
 	@Bean
 	public KStreamBoundElementFactory kafkaStreamBindableTargetFactory(BindingServiceProperties bindingServiceProperties,
-																	BoundedKStreamRegistryService boundedKStreamRegistryService,
+																	KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue,
 																	KeyValueSerdeResolver keyValueSerdeResolver,
 																	   KStreamExtendedBindingProperties kStreamExtendedBindingProperties) {
 		KStreamBoundElementFactory kStreamBoundElementFactory = new KStreamBoundElementFactory(bindingServiceProperties,
-				boundedKStreamRegistryService, keyValueSerdeResolver);
+				KStreamBindingInformationCatalogue, keyValueSerdeResolver);
 		kStreamBoundElementFactory.setkStreamExtendedBindingProperties(kStreamExtendedBindingProperties);
 		return kStreamBoundElementFactory;
 	}
@@ -111,8 +112,8 @@ public class KStreamBinderSupportAutoConfiguration {
 	}
 
 	@Bean
-	public BoundedKStreamRegistryService boundedKStreamRegistryService() {
-		return new BoundedKStreamRegistryService();
+	public KStreamBindingInformationCatalogue boundedKStreamRegistryService() {
+		return new KStreamBindingInformationCatalogue();
 	}
 
 	@Bean
@@ -120,4 +121,10 @@ public class KStreamBinderSupportAutoConfiguration {
 													KStreamBinderConfigurationProperties kStreamBinderConfigurationProperties) {
 		return new KeyValueSerdeResolver(streamConfigGlobalProperties, kStreamBinderConfigurationProperties);
 	}
+
+	@Bean
+	public QueryableStoreRegistry queryableStoreTypeRegistry() {
+		return new QueryableStoreRegistry();
+	}
+
 }
