@@ -18,16 +18,10 @@ package org.springframework.cloud.stream.binder.kstream;
 
 import org.aopalliance.intercept.MethodInterceptor;
 import org.aopalliance.intercept.MethodInvocation;
-import org.apache.kafka.common.serialization.Serde;
-import org.apache.kafka.streams.Consumed;
-import org.apache.kafka.streams.KeyValue;
-import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
 
 import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.cloud.stream.binder.kstream.config.KStreamConsumerProperties;
 import org.springframework.cloud.stream.binder.kstream.config.KStreamExtendedBindingProperties;
 import org.springframework.cloud.stream.binding.AbstractBindingTargetFactory;
 import org.springframework.cloud.stream.config.BindingProperties;
@@ -35,12 +29,7 @@ import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.support.AbstractApplicationContext;
-import org.springframework.kafka.core.StreamsBuilderFactoryBean;
-import org.springframework.messaging.Message;
-import org.springframework.messaging.MessageHeaders;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.util.Assert;
-import org.springframework.util.StringUtils;
 
 /**
  * @author Marius Bogoevici
@@ -80,47 +69,57 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 	@Override
 	public KStream createInput(String name) {
 
+		KStreamWrapperHandler wrapper= new KStreamWrapperHandler();
+		ProxyFactory proxyFactory = new ProxyFactory(KStreamWrapper.class, KStream.class);
+		proxyFactory.addAdvice(wrapper);
+
+		KStream proxy = (KStream) proxyFactory.getProxy();
+
 		BindingProperties bindingProperties = bindingServiceProperties.getBindingProperties(name);
-		String destination = bindingProperties.getDestination();
-		if (destination == null) {
-			destination = name;
-		}
-		KStreamConsumerProperties extendedConsumerProperties = kStreamExtendedBindingProperties.getExtendedConsumerProperties(name);
-		Serde<?> keySerde = this.keyValueSerdeResolver.getInboundKeySerde(extendedConsumerProperties);
+		this.KStreamBindingInformationCatalogue.registerBindingProperties(proxy, bindingProperties);
+		return proxy;
 
-		Serde<?> valueSerde = this.keyValueSerdeResolver.getInboundValueSerde(bindingProperties.getConsumer(),
-				extendedConsumerProperties);
-
-		ConfigurableListableBeanFactory beanFactory = this.applicationContext.getBeanFactory();
-		StreamsBuilderFactoryBean streamsBuilder = new StreamsBuilderFactoryBean();
-		streamsBuilder.setAutoStartup(false);
-		beanFactory.registerSingleton("stream-builder-" + destination, streamsBuilder);
-		beanFactory.initializeBean(streamsBuilder, "stream-builder-" + destination);
-
-		StreamsBuilder streamBuilder = null;
-		try {
-			streamBuilder = streamsBuilder.getObject();
-		} catch (Exception e) {
-			//log and bail
-		}
-
-		KStream<?,?> stream = streamBuilder.stream(bindingServiceProperties.getBindingDestination(name),
-						Consumed.with(keySerde, valueSerde));
-		stream = stream.map((key, value) -> {
-			KeyValue<Object, Object> keyValue;
-			String contentType = bindingProperties.getContentType();
-			if (!StringUtils.isEmpty(contentType) && !bindingProperties.getConsumer().isUseNativeDecoding()) {
-				Message<?> message = MessageBuilder.withPayload(value)
-						.setHeader(MessageHeaders.CONTENT_TYPE, contentType).build();
-				keyValue = new KeyValue<>(key, message);
-			}
-			else {
-				keyValue = new KeyValue<>(key, value);
-			}
-			return keyValue;
-		});
-		this.KStreamBindingInformationCatalogue.registerBindingProperties(stream, bindingProperties);
-		return stream;
+//		BindingProperties bindingProperties = bindingServiceProperties.getBindingProperties(name);
+//		String destination = bindingProperties.getDestination();
+//		if (destination == null) {
+//			destination = name;
+//		}
+//		KStreamConsumerProperties extendedConsumerProperties = kStreamExtendedBindingProperties.getExtendedConsumerProperties(name);
+//		Serde<?> keySerde = this.keyValueSerdeResolver.getInboundKeySerde(extendedConsumerProperties);
+//
+//		Serde<?> valueSerde = this.keyValueSerdeResolver.getInboundValueSerde(bindingProperties.getConsumer(),
+//				extendedConsumerProperties);
+//
+//		ConfigurableListableBeanFactory beanFactory = this.applicationContext.getBeanFactory();
+//		StreamsBuilderFactoryBean streamsBuilder = new StreamsBuilderFactoryBean();
+//		streamsBuilder.setAutoStartup(false);
+//		beanFactory.registerSingleton("stream-builder-" + destination, streamsBuilder);
+//		beanFactory.initializeBean(streamsBuilder, "stream-builder-" + destination);
+//
+//		StreamsBuilder streamBuilder = null;
+//		try {
+//			streamBuilder = streamsBuilder.getObject();
+//		} catch (Exception e) {
+//			//log and bail
+//		}
+//
+//		KStream<?,?> stream = streamBuilder.stream(bindingServiceProperties.getBindingDestination(name),
+//						Consumed.with(keySerde, valueSerde));
+//		stream = stream.map((key, value) -> {
+//			KeyValue<Object, Object> keyValue;
+//			String contentType = bindingProperties.getContentType();
+//			if (!StringUtils.isEmpty(contentType) && !bindingProperties.getConsumer().isUseNativeDecoding()) {
+//				Message<?> message = MessageBuilder.withPayload(value)
+//						.setHeader(MessageHeaders.CONTENT_TYPE, contentType).build();
+//				keyValue = new KeyValue<>(key, message);
+//			}
+//			else {
+//				keyValue = new KeyValue<>(key, value);
+//			}
+//			return keyValue;
+//		});
+//		this.KStreamBindingInformationCatalogue.registerBindingProperties(stream, bindingProperties);
+//		return stream;
 	}
 
 	@Override
@@ -140,6 +139,8 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 	public interface KStreamWrapper {
 
 		void wrap(KStream<Object, Object> delegate);
+
+		KStream<Object, Object> getDelegate();
 	}
 
 	private static class KStreamWrapperHandler implements KStreamWrapper, MethodInterceptor {
@@ -150,6 +151,11 @@ public class KStreamBoundElementFactory extends AbstractBindingTargetFactory<KSt
 			Assert.notNull(delegate, "delegate cannot be null");
 			Assert.isNull(this.delegate, "delegate already set to " + this.delegate);
 			this.delegate = delegate;
+		}
+
+		@Override
+		public KStream<Object, Object> getDelegate() {
+			return delegate;
 		}
 
 		@Override

@@ -16,7 +16,6 @@
 
 package org.springframework.cloud.stream.binder.kstream;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -98,9 +97,9 @@ public class KStreamBoundMessageConversionDelegate {
 						MimeType contentTypeToUse = contentType instanceof String ? MimeType.valueOf((String) contentType) : (MimeType) contentType;
 						if (payload instanceof byte[] && ("text".equalsIgnoreCase(contentTypeToUse.getType()) ||
 								equalTypeAndSubType(MimeTypeUtils.APPLICATION_JSON, contentTypeToUse))) {
-							payload = new String((byte[]) payload, StandardCharsets.UTF_8);
-							Message<String> msg = MessageBuilder.withPayload((String) payload).copyHeaders(((Message) o2).getHeaders()).build();
-							convertAndSetMessage(o, valueClass, messageConverter, msg);
+							//payload = new String((byte[]) payload, StandardCharsets.UTF_8);
+							//Message<String> msg = MessageBuilder.withPayload(payload).copyHeaders(((Message) o2).getHeaders()).build();
+							convertAndSetMessage(o, valueClass, messageConverter, ((Message) o2));
 						}
 						else if (valueClass.isAssignableFrom(((Message) o2).getPayload().getClass())) {
 							keyValueThreadLocal.set(new KeyValue<>(o, ((Message) o2).getPayload()));
@@ -119,6 +118,7 @@ public class KStreamBoundMessageConversionDelegate {
 					isValidRecord = true;
 				}
 				catch (Exception ignored) {
+					System.out.println();
 					//pass through
 				}
 				return isValidRecord;

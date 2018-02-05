@@ -82,9 +82,15 @@ public class KStreamBinderSupportAutoConfiguration {
 
 	@Bean
 	public KStreamListenerSetupMethodOrchestrator kStreamListenerSetupMethodOrchestrator(
+			BindingServiceProperties bindingServiceProperties,
+			KStreamExtendedBindingProperties kStreamExtendedBindingProperties,
+			KeyValueSerdeResolver keyValueSerdeResolver,
+			KStreamBindingInformationCatalogue kStreamBindingInformationCatalogue,
 			KStreamListenerParameterAdapter kafkaStreamListenerParameterAdapter,
 			Collection<StreamListenerResultAdapter> streamListenerResultAdapters){
-		return new KStreamListenerSetupMethodOrchestrator(kafkaStreamListenerParameterAdapter, streamListenerResultAdapters);
+		return new KStreamListenerSetupMethodOrchestrator(bindingServiceProperties,
+				kStreamExtendedBindingProperties, keyValueSerdeResolver, kStreamBindingInformationCatalogue,
+				kafkaStreamListenerParameterAdapter, streamListenerResultAdapters);
 	}
 
 	@Bean

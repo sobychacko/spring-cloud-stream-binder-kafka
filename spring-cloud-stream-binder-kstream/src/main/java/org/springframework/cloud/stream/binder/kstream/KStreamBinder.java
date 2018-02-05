@@ -85,6 +85,8 @@ public class KStreamBinder extends
 															KStream<Object, Object> inputTarget,
 															ExtendedConsumerProperties<KStreamConsumerProperties> properties) {
 
+		//KStreamBoundElementFactory.KStreamWrapper kStreamWrapper = (KStreamBoundElementFactory.KStreamWrapper)inputTarget;
+
 		this.KStreamBindingInformationCatalogue.registerConsumerProperties(inputTarget, properties.getExtension());
 		ExtendedConsumerProperties<KafkaConsumerProperties> extendedConsumerProperties = new ExtendedConsumerProperties<>(
 				properties.getExtension());

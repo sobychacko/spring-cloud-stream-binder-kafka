@@ -19,21 +19,35 @@ package org.springframework.cloud.stream.binder.kstream;
 import java.lang.reflect.Method;
 import java.util.Collection;
 
+import org.apache.kafka.common.serialization.Serde;
+import org.apache.kafka.streams.Consumed;
+import org.apache.kafka.streams.KeyValue;
+import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanInitializationException;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.cloud.stream.annotation.Input;
 import org.springframework.cloud.stream.annotation.StreamListener;
+import org.springframework.cloud.stream.binder.kstream.config.KStreamConsumerProperties;
+import org.springframework.cloud.stream.binder.kstream.config.KStreamExtendedBindingProperties;
 import org.springframework.cloud.stream.binding.StreamListenerErrorMessages;
 import org.springframework.cloud.stream.binding.StreamListenerParameterAdapter;
 import org.springframework.cloud.stream.binding.StreamListenerResultAdapter;
 import org.springframework.cloud.stream.binding.StreamListenerSetupMethodOrchestrator;
+import org.springframework.cloud.stream.config.BindingProperties;
+import org.springframework.cloud.stream.config.BindingServiceProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.kafka.core.StreamsBuilderFactoryBean;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.util.Assert;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
@@ -51,8 +65,21 @@ public class KStreamListenerSetupMethodOrchestrator implements StreamListenerSet
 	private StreamListenerParameterAdapter streamListenerParameterAdapter;
 	private Collection<StreamListenerResultAdapter> streamListenerResultAdapters;
 
-	public KStreamListenerSetupMethodOrchestrator(StreamListenerParameterAdapter streamListenerParameterAdapter,
-												Collection<StreamListenerResultAdapter> streamListenerResultAdapters) {
+	private BindingServiceProperties bindingServiceProperties;
+	private KStreamExtendedBindingProperties kStreamExtendedBindingProperties;
+	private KeyValueSerdeResolver keyValueSerdeResolver;
+	private KStreamBindingInformationCatalogue kStreamBindingInformationCatalogue;
+
+	public KStreamListenerSetupMethodOrchestrator(BindingServiceProperties bindingServiceProperties,
+												  KStreamExtendedBindingProperties kStreamExtendedBindingProperties,
+												  KeyValueSerdeResolver keyValueSerdeResolver,
+												  KStreamBindingInformationCatalogue kStreamBindingInformationCatalogue,
+												  StreamListenerParameterAdapter streamListenerParameterAdapter,
+												  Collection<StreamListenerResultAdapter> streamListenerResultAdapters) {
+		this.bindingServiceProperties = bindingServiceProperties;
+		this.kStreamExtendedBindingProperties = kStreamExtendedBindingProperties;
+		this.keyValueSerdeResolver = keyValueSerdeResolver;
+		this.kStreamBindingInformationCatalogue = kStreamBindingInformationCatalogue;
 		this.streamListenerParameterAdapter = streamListenerParameterAdapter;
 		this.streamListenerResultAdapters = streamListenerResultAdapters;
 	}
@@ -75,6 +102,93 @@ public class KStreamListenerSetupMethodOrchestrator implements StreamListenerSet
 		MethodParameter methodParameter = MethodParameter.forExecutable(method, 0);
 		Class<?> parameterType = methodParameter.getParameterType();
 		return parameterType.equals(KStream.class);
+	}
+
+	@Override
+	@SuppressWarnings({"unchecked"})
+	public Object[] adaptAndRetrieveInboundArguments(Method method, String inboundName,
+													 ApplicationContext applicationContext,
+													 StreamListenerParameterAdapter... streamListenerParameterAdapters) {
+
+		Object[] arguments = new Object[method.getParameterTypes().length];
+		for (int parameterIndex = 0; parameterIndex < arguments.length; parameterIndex++) {
+			MethodParameter methodParameter = MethodParameter.forExecutable(method, parameterIndex);
+			Class<?> parameterType = methodParameter.getParameterType();
+			Object targetReferenceValue = null;
+			if (methodParameter.hasParameterAnnotation(Input.class)) {
+				targetReferenceValue = AnnotationUtils.getValue(methodParameter.getParameterAnnotation(Input.class));
+			}
+			else if (arguments.length == 1 && StringUtils.hasText(inboundName)) {
+				targetReferenceValue = inboundName;
+			}
+			if (targetReferenceValue != null) {
+				Assert.isInstanceOf(String.class, targetReferenceValue, "Annotation value must be a String");
+				Object targetBean = applicationContext.getBean((String) targetReferenceValue);
+
+				KStreamBoundElementFactory.KStreamWrapper kStreamWrapper = (KStreamBoundElementFactory.KStreamWrapper)targetBean;
+
+
+				BindingProperties bindingProperties = bindingServiceProperties.getBindingProperties(inboundName);
+				String destination = bindingProperties.getDestination();
+				if (destination == null) {
+					destination = inboundName;
+				}
+				KStreamConsumerProperties extendedConsumerProperties = kStreamExtendedBindingProperties.getExtendedConsumerProperties(inboundName);
+				Serde<?> keySerde = this.keyValueSerdeResolver.getInboundKeySerde(extendedConsumerProperties);
+
+				Serde<?> valueSerde = this.keyValueSerdeResolver.getInboundValueSerde(bindingProperties.getConsumer(),
+						extendedConsumerProperties);
+
+				ConfigurableListableBeanFactory beanFactory = this.applicationContext.getBeanFactory();
+				StreamsBuilderFactoryBean streamsBuilder = new StreamsBuilderFactoryBean();
+				streamsBuilder.setAutoStartup(false);
+				beanFactory.registerSingleton("stream-builder-" + destination, streamsBuilder);
+				beanFactory.initializeBean(streamsBuilder, "stream-builder-" + destination);
+
+				StreamsBuilder streamBuilder = null;
+				try {
+					streamBuilder = streamsBuilder.getObject();
+				} catch (Exception e) {
+					//log and bail
+				}
+
+				KStream<?,?> stream = streamBuilder.stream(bindingServiceProperties.getBindingDestination(inboundName),
+								Consumed.with(keySerde, valueSerde));
+				stream = stream.map((key, value) -> {
+					KeyValue<Object, Object> keyValue;
+					String contentType = bindingProperties.getContentType();
+					if (!StringUtils.isEmpty(contentType) && !bindingProperties.getConsumer().isUseNativeDecoding()) {
+						Message<?> message = MessageBuilder.withPayload(value)
+								.setHeader(MessageHeaders.CONTENT_TYPE, contentType).build();
+						keyValue = new KeyValue<>(key, message);
+					}
+					else {
+						keyValue = new KeyValue<>(key, value);
+					}
+					return keyValue;
+				});
+				kStreamWrapper.wrap((KStream<Object, Object>) stream);
+
+				//this.kStreamBindingInformationCatalogue.registerBindingProperties(kStreamWrapper, bindingProperties);
+
+				// Iterate existing parameter adapters first
+				for (StreamListenerParameterAdapter streamListenerParameterAdapter : streamListenerParameterAdapters) {
+					if (streamListenerParameterAdapter.supports(stream.getClass(), methodParameter)) {
+						arguments[parameterIndex] = streamListenerParameterAdapter.adapt(kStreamWrapper, methodParameter);
+						break;
+					}
+				}
+				if (arguments[parameterIndex] == null && parameterType.isAssignableFrom(stream.getClass())) {
+					arguments[parameterIndex] = stream;
+				}
+				Assert.notNull(arguments[parameterIndex], "Cannot convert argument " + parameterIndex + " of " + method
+						+ "from " + stream.getClass() + " to " + parameterType);
+			}
+			else {
+				throw new IllegalStateException(StreamListenerErrorMessages.INVALID_DECLARATIVE_METHOD_PARAMETERS);
+			}
+		}
+		return arguments;
 	}
 
 	@Override
