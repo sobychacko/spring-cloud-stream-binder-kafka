@@ -87,7 +87,7 @@ public class KStreamBinderSupportAutoConfiguration {
 			KeyValueSerdeResolver keyValueSerdeResolver,
 			KStreamBindingInformationCatalogue kStreamBindingInformationCatalogue,
 			KStreamListenerParameterAdapter kafkaStreamListenerParameterAdapter,
-			Collection<StreamListenerResultAdapter> streamListenerResultAdapters){
+			Collection<StreamListenerResultAdapter> streamListenerResultAdapters) {
 		return new KStreamListenerSetupMethodOrchestrator(bindingServiceProperties,
 				kStreamExtendedBindingProperties, keyValueSerdeResolver, kStreamBindingInformationCatalogue,
 				kafkaStreamListenerParameterAdapter, streamListenerResultAdapters);
@@ -103,13 +103,9 @@ public class KStreamBinderSupportAutoConfiguration {
 
 	@Bean
 	public KStreamBoundElementFactory kafkaStreamBindableTargetFactory(BindingServiceProperties bindingServiceProperties,
-																	KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue,
-																	KeyValueSerdeResolver keyValueSerdeResolver,
-																	   KStreamExtendedBindingProperties kStreamExtendedBindingProperties) {
-		KStreamBoundElementFactory kStreamBoundElementFactory = new KStreamBoundElementFactory(bindingServiceProperties,
-				KStreamBindingInformationCatalogue, keyValueSerdeResolver);
-		kStreamBoundElementFactory.setkStreamExtendedBindingProperties(kStreamExtendedBindingProperties);
-		return kStreamBoundElementFactory;
+																	KStreamBindingInformationCatalogue KStreamBindingInformationCatalogue) {
+		return new KStreamBoundElementFactory(bindingServiceProperties,
+				KStreamBindingInformationCatalogue);
 	}
 
 	@Bean

@@ -85,8 +85,6 @@ public class KStreamBinder extends
 															KStream<Object, Object> inputTarget,
 															ExtendedConsumerProperties<KStreamConsumerProperties> properties) {
 
-		//KStreamBoundElementFactory.KStreamWrapper kStreamWrapper = (KStreamBoundElementFactory.KStreamWrapper)inputTarget;
-
 		this.KStreamBindingInformationCatalogue.registerConsumerProperties(inputTarget, properties.getExtension());
 		ExtendedConsumerProperties<KafkaConsumerProperties> extendedConsumerProperties = new ExtendedConsumerProperties<>(
 				properties.getExtension());
@@ -102,6 +100,7 @@ public class KStreamBinder extends
 		Map<String, Object> streamConfigGlobalProperties = getApplicationContext().getBean("streamConfigGlobalProperties", Map.class);
 
 		StreamsBuilderFactoryBean streamsBuilder = getApplicationContext().getBean("&stream-builder-" + name, StreamsBuilderFactoryBean.class);
+
 
 		streamConfigGlobalProperties.put(StreamsConfig.APPLICATION_ID_CONFIG, group);
 

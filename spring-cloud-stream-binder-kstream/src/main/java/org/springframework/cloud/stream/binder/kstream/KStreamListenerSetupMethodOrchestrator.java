@@ -18,12 +18,16 @@ package org.springframework.cloud.stream.binder.kstream;
 
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.streams.Consumed;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.kstream.KStream;
+import org.apache.kafka.streams.kstream.KTable;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanInitializationException;
@@ -69,6 +73,9 @@ public class KStreamListenerSetupMethodOrchestrator implements StreamListenerSet
 	private KStreamExtendedBindingProperties kStreamExtendedBindingProperties;
 	private KeyValueSerdeResolver keyValueSerdeResolver;
 	private KStreamBindingInformationCatalogue kStreamBindingInformationCatalogue;
+
+	private final Map<Method, StreamsBuilderFactoryBean> methodStreamsBuilderFactoryBeanMap = new HashMap<>();
+
 
 	public KStreamListenerSetupMethodOrchestrator(BindingServiceProperties bindingServiceProperties,
 												  KStreamExtendedBindingProperties kStreamExtendedBindingProperties,
@@ -127,7 +134,6 @@ public class KStreamListenerSetupMethodOrchestrator implements StreamListenerSet
 
 				KStreamBoundElementFactory.KStreamWrapper kStreamWrapper = (KStreamBoundElementFactory.KStreamWrapper)targetBean;
 
-
 				BindingProperties bindingProperties = bindingServiceProperties.getBindingProperties(inboundName);
 				String destination = bindingProperties.getDestination();
 				if (destination == null) {
@@ -139,18 +145,27 @@ public class KStreamListenerSetupMethodOrchestrator implements StreamListenerSet
 				Serde<?> valueSerde = this.keyValueSerdeResolver.getInboundValueSerde(bindingProperties.getConsumer(),
 						extendedConsumerProperties);
 
-				ConfigurableListableBeanFactory beanFactory = this.applicationContext.getBeanFactory();
-				StreamsBuilderFactoryBean streamsBuilder = new StreamsBuilderFactoryBean();
-				streamsBuilder.setAutoStartup(false);
-				beanFactory.registerSingleton("stream-builder-" + destination, streamsBuilder);
-				beanFactory.initializeBean(streamsBuilder, "stream-builder-" + destination);
+				if (!methodStreamsBuilderFactoryBeanMap.containsKey(method)) {
+					ConfigurableListableBeanFactory beanFactory = this.applicationContext.getBeanFactory();
+					StreamsBuilderFactoryBean streamsBuilder = new StreamsBuilderFactoryBean();
+					streamsBuilder.setAutoStartup(false);
+					String uuid = UUID.randomUUID().toString();
+					beanFactory.registerSingleton("stream-builder-" + destination, streamsBuilder);
+					beanFactory.initializeBean(streamsBuilder, "stream-builder-" + destination);
+
+					StreamsBuilderFactoryBean streamsBuilderX = applicationContext.getBean("&stream-builder-" + destination, StreamsBuilderFactoryBean.class);
+
+					methodStreamsBuilderFactoryBeanMap.put(method, streamsBuilderX);
+				}
+				StreamsBuilderFactoryBean streamsBuilderX = methodStreamsBuilderFactoryBeanMap.get(method);
 
 				StreamsBuilder streamBuilder = null;
 				try {
-					streamBuilder = streamsBuilder.getObject();
+					streamBuilder = streamsBuilderX.getObject();
 				} catch (Exception e) {
 					//log and bail
 				}
+				KTable<?,?> tab = null;
 
 				KStream<?,?> stream = streamBuilder.stream(bindingServiceProperties.getBindingDestination(inboundName),
 								Consumed.with(keySerde, valueSerde));
