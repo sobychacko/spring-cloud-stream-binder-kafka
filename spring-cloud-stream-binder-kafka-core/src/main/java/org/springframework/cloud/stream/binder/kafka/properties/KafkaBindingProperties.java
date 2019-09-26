@@ -26,8 +26,14 @@ import org.springframework.cloud.stream.binder.BinderSpecificPropertiesProvider;
  */
 public class KafkaBindingProperties implements BinderSpecificPropertiesProvider {
 
+	/**
+	 * Consumer specific binding properties. @see {@link KafkaConsumerProperties}.
+	 */
 	private KafkaConsumerProperties consumer = new KafkaConsumerProperties();
 
+	/**
+	 * Producer specific binding properties. @see {@link KafkaProducerProperties}.
+	 */
 	private KafkaProducerProperties producer = new KafkaProducerProperties();
 
 	public KafkaConsumerProperties getConsumer() {

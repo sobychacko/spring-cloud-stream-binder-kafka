@@ -33,26 +33,61 @@ import org.springframework.expression.Expression;
  */
 public class KafkaProducerProperties {
 
+	/**
+	 * Upper limit, in bytes, of how much data the Kafka producer attempts to batch before sending.
+	 */
 	private int bufferSize = 16384;
 
+	/**
+	 * Set the compression.type producer property. Supported values are none, gzip, snappy and lz4.
+	 * See {@link CompressionType} for more details.
+	 */
 	private CompressionType compressionType = CompressionType.none;
 
+	/**
+	 * Whether the producer is synchronous.
+	 */
 	private boolean sync;
 
+	/**
+	 * A SpEL expression evaluated against the outgoing message used to evaluate the time to wait for ack when synchronous publish is enabled.
+	 */
 	private Expression sendTimeoutExpression;
 
+	/**
+	 * How long the producer waits to allow more messages to accumulate in the same batch before sending the messages.
+	 */
 	private int batchTimeout;
 
+	/**
+	 * A SpEL expression evaluated against the outgoing message used to populate the key of the produced Kafka message.
+	 */
 	private Expression messageKeyExpression;
 
+	/**
+	 * A comma-delimited list of simple patterns to match Spring messaging headers to be mapped to the Kafka Headers in the ProducerRecord.
+	 */
 	private String[] headerPatterns;
 
+	/**
+	 * Map with a key/value pair containing generic Kafka producer properties.
+	 */
 	private Map<String, String> configuration = new HashMap<>();
 
+	/**
+	 * Various topic level properties. @see {@link KafkaTopicProperties} for more details.
+	 */
 	private KafkaTopicProperties topic = new KafkaTopicProperties();
 
+	/**
+	 * Set to true to override the default binding destination (topic name) with the value of the KafkaHeaders.TOPIC message header in the outbound message.
+	 * If the header is not present, the default binding destination is used.
+	 */
 	private boolean useTopicHeader;
 
+	/**
+	 * The bean name of a MessageChannel to which successful send results should be sent; the bean must exist in the application context.
+	 */
 	private String recordMetadataChannel;
 
 	public int getBufferSize() {

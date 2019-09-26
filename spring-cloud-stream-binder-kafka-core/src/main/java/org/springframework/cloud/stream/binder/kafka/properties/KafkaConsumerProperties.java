@@ -84,40 +84,100 @@ public class KafkaConsumerProperties {
 
 	}
 
+	/**
+	 * When autoCommitOffset is true, this setting dictates whether to commit the offset after each record is processed.
+	 */
 	private boolean ackEachRecord;
 
+	/**
+	 * When true, topic partitions is automatically rebalanced between the members of a consumer group.
+	 * When false, each consumer is assigned a fixed set of partitions based on spring.cloud.stream.instanceCount and spring.cloud.stream.instanceIndex.
+	 */
 	private boolean autoRebalanceEnabled = true;
 
+	/**
+	 * Whether to autocommit offsets when a message has been processed.
+	 * If set to false, a header with the key kafka_acknowledgment of the type org.springframework.kafka.support.Acknowledgment header
+	 * is present in the inbound message. Applications may use this header for acknowledging messages.
+	 */
 	private boolean autoCommitOffset = true;
 
+	/**
+	 * Effective only if autoCommitOffset is set to true.
+	 * If set to false, it suppresses auto-commits for messages that result in errors and commits only for successful messages.
+	 * It allows a stream to automatically replay from the last successfully processed message, in case of persistent failures.
+	 * If set to true, it always auto-commits (if auto-commit is enabled).
+	 * If not set (the default), it effectively has the same value as enableDlq,
+	 * auto-committing erroneous messages if they are sent to a DLQ and not committing them otherwise.
+	 */
 	private Boolean autoCommitOnError;
 
+	/**
+	 * The starting offset for new groups. Allowed values: earliest and latest.
+	 */
 	private StartOffset startOffset;
 
+	/**
+	 * Whether to reset offsets on the consumer to the value provided by startOffset.
+	 * Must be false if a KafkaRebalanceListener is provided.
+	 */
 	private boolean resetOffsets;
 
+	/**
+	 * When set to true, it enables DLQ behavior for the consumer.
+	 * By default, messages that result in errors are forwarded to a topic named error.name-of-destination.name-of-group.
+	 * The DLQ topic name can be configurable by setting the dlqName property.
+	 */
 	private boolean enableDlq;
 
+	/**
+	 * The name of the DLQ topic to receive the error messages.
+	 */
 	private String dlqName;
 
 	private Integer dlqPartitions;
 
+	/**
+	 * Using this, DLQ-specific producer properties can be set.
+	 * All the properties available through kafka producer properties can be set through this property.
+	 */
 	private KafkaProducerProperties dlqProducerProperties = new KafkaProducerProperties();
 
-	private int recoveryInterval = 5000;
-
+	/**
+	 * List of trusted packages to provide the header mapper.
+	 */
 	private String[] trustedPackages;
 
+	/**
+	 * Indicates which standard headers are populated by the inbound channel adapter.
+	 * Allowed values: none, id, timestamp, or both.
+	 */
 	private StandardHeaders standardHeaders = StandardHeaders.none;
 
+	/**
+	 * The name of a bean that implements RecordMessageConverter.
+	 */
 	private String converterBeanName;
 
+	/**
+	 * The interval, in milliseconds, between events indicating that no messages have recently been received.
+	 */
 	private long idleEventInterval = 30_000;
 
+	/**
+	 * When true, the destination is treated as a regular expression Pattern used to match topic names by the broker.
+	 */
 	private boolean destinationIsPattern;
 
+	/**
+	 * Map with a key/value pair containing generic Kafka consumer properties.
+	 * In addition to having Kafka consumer properties, other configuration properties can be passed here.
+	 */
 	private Map<String, String> configuration = new HashMap<>();
 
+	/**
+	 * Various topic level properties. @see {@link KafkaTopicProperties} for more details.
+	 */
 	private KafkaTopicProperties topic = new KafkaTopicProperties();
 
 	/**
@@ -171,26 +231,6 @@ public class KafkaConsumerProperties {
 
 	public void setAutoCommitOnError(Boolean autoCommitOnError) {
 		this.autoCommitOnError = autoCommitOnError;
-	}
-
-	/**
-	 * No longer used.
-	 * @return the interval.
-	 * @deprecated No longer used by the binder
-	 */
-	@Deprecated
-	public int getRecoveryInterval() {
-		return this.recoveryInterval;
-	}
-
-	/**
-	 * No longer used.
-	 * @param recoveryInterval the interval.
-	 * @deprecated No longer needed by the binder
-	 */
-	@Deprecated
-	public void setRecoveryInterval(int recoveryInterval) {
-		this.recoveryInterval = recoveryInterval;
 	}
 
 	public boolean isAutoRebalanceEnabled() {
